@@ -1,8 +1,8 @@
 #version 330 core
+in vec3 VertexColor; // matches output at shader.vert
 out vec4 FragColor;
 
 void main()
 {
-	// linearly interpolate between both textures (80% container, 20% awesomeface)
-	FragColor = vec4(0.0, 0.0, 0.0, 0.1);
+	FragColor = vec4(VertexColor, 1.0);
 }
