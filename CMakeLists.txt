@@ -27,6 +27,7 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/glad.c
     src/Data.cpp
+    src/Rasterizer.cpp
 )
 
 # ---- Include directories ----

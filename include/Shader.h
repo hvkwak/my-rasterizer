@@ -1,12 +1,11 @@
 #ifndef SHADER_H
 #define SHADER_H
 
-/* Portions of this file are derived from LearnOpenGL.com tutorials.
- * © Joey de Vries – LearnOpenGL.com
- * Original code: https://github.com/JoeyDeVries/LearnOpenGL/includes/learnopengl/shader_m.h
+/* -----------------------------------------------------------------------------
+ * Based on code from LearnOpenGL.com | Copyright © Joey de Vries
+ * Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/shader_m.h
  * Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
- * Twitter: https://twitter.com/JoeyDeVriez
- */
+ * ----------------------------------------------------------------------------- */
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -75,8 +74,13 @@ public:
         // delete the shaders as they're linked into our program now and no longer necessary
         glDeleteShader(vertex);
         glDeleteShader(fragment);
-
     }
+
+    // ~Shader()
+    // {
+    //     glDeleteProgram(ID);
+    // }
+
     // activate the shader
     // ------------------------------------------------------------------------
     void use() const

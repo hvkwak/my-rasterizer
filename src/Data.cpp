@@ -22,7 +22,7 @@ std::vector<Point> readPLY(const std::string& filename) {
         return finalPoints;
     }
 
-    // --- Phase 1: Parse Header ---
+    // parse header
     std::string line;
     long vertexCount = 0;
     bool headerEnded = false;
@@ -44,16 +44,20 @@ std::vector<Point> readPLY(const std::string& filename) {
 
     if (!headerEnded || vertexCount == 0) return finalPoints;
 
-    // --- Phase 2: Read Binary Data ---
-
+    // read binary data
     // 1. Create a buffer to hold the raw file data
     std::vector<FilePoint> rawData(vertexCount);
 
     // 2. Read the file into the buffer in one go (very fast)
     file.read(reinterpret_cast<char*>(rawData.data()), vertexCount * sizeof(FilePoint));
 
-    // --- Phase 3: Convert to your GLM format ---
+    if (file.gcount() != vertexCount * sizeof(FilePoint)) {
+      std::cerr << "Error: Corrupted file or unexpected end of file." << std::endl;
+      finalPoints.clear();
+      return finalPoints;
+    }
 
+    // convert to GLM format
     // Reserve memory for your actual points
     finalPoints.resize(vertexCount);
 
