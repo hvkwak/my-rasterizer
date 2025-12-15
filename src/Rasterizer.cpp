@@ -34,10 +34,11 @@ Rasterizer::~Rasterizer(){
 
 bool Rasterizer::init(const std::string& read_filename, const std::string& read_shader_vert, const std::string& read_shader_frag){
   if (!setupWindow()) return false;
-  if (!setupRasterizer()) return false;
+  if (!setupData(read_filename)) return false; // runs before setupRasterizer().
+  if (!setupRasterizer()) return false; // runs before CameraPose()
+  if (!setupCameraPose()) return false;
   if (!setupInput()) return false;
   if (!setupShader(read_shader_vert, read_shader_frag)) return false;
-  if (!setupData(read_filename)) return false;
   if (!setupBuffer()) return false;
   return true;
 }
@@ -55,6 +56,25 @@ bool Rasterizer::setupRasterizer(){
   glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
   glEnable(GL_DEPTH_TEST);
   glPointSize(3.0f);
+  return true;
+}
+
+/**
+ * @brief initialize Camera Position based on bb_min, bb_max for better visualization
+ *
+ * @param
+ * @return
+ */
+bool Rasterizer::setupCameraPose(){
+
+  glm::vec3 center = 0.5f * (bb_max + bb_min);
+  glm::vec3 extent = (bb_max - bb_min);
+  float diag = glm::length(extent);
+
+  // // Put camera: above (+Y) and in front (+Z or -Z depending on your world)
+  glm::vec3 position = center + glm::vec3(0.3f * diag, 0.5f * diag, 1.2f * diag);
+
+  camera.changePose(position, center);
   return true;
 }
 
@@ -108,6 +128,10 @@ bool Rasterizer::setupWindow(){
   return true;
 }
 
+/**
+ * @brief setup input and callbacks
+ *
+ */
 bool Rasterizer::setupInput(){
   if (window == nullptr){
     return false;
@@ -128,13 +152,27 @@ bool Rasterizer::setupInput(){
 
 bool Rasterizer::setupData(const std::string& read_filename){
   // Replace with your actual file path to setup vertex data
-  points = readPLY(read_filename);
+  bb_min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+  bb_max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+  points = readPLY(read_filename, bb_min, bb_max);
+
   if (points.empty()) {
     std::cerr
         << "Error: Could not load PLY file or file was corrupted. Exiting."
         << std::endl;
     return false;
   }
+  std::cout << "bb_min: "
+            << bb_min.x << ", "
+            << bb_min.y << ", "
+            << bb_min.z << ", "
+            << std::endl;
+  std::cout << "bb_max: "
+            << bb_max.x << ", "
+            << bb_max.y << ", "
+            << bb_max.z << ", "
+            << std::endl;
+
   return true;
 }
 
@@ -201,8 +239,19 @@ void Rasterizer::processInput() {
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.ProcessKeyboard(Camera::RIGHT, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) camera.ProcessKeyboard(Camera::UP, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) camera.ProcessKeyboard(Camera::DOWN, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_MINUS, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_PLUS, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_MINUS, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_PLUS, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
+}
+
+void Rasterizer::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+  auto* self = static_cast<Rasterizer*>(glfwGetWindowUserPointer(window));
+  if (self == nullptr) return;
+  self->camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
 void Rasterizer::mouse_callback(GLFWwindow* window, double xposIn, double yposIn)

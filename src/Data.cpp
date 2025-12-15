@@ -13,7 +13,7 @@
  * @param filename filename of .ply file
  * @return vector of 3D points
  */
-std::vector<Point> readPLY(const std::string& filename) {
+std::vector<Point> readPLY(const std::string& filename, glm::vec3 & bb_min, glm::vec3& bb_max) {
     std::ifstream file(filename, std::ios::binary);
     std::vector<Point> finalPoints;
 
@@ -62,18 +62,27 @@ std::vector<Point> readPLY(const std::string& filename) {
     finalPoints.resize(vertexCount);
 
     for (size_t i = 0; i < vertexCount; ++i) {
+
         // Convert Double (File) -> Float (GLM)
-        finalPoints[i].pos = glm::vec3(
-            static_cast<float>(rawData[i].x),
-            static_cast<float>(rawData[i].y),
-            static_cast<float>(rawData[i].z)
-        );
+        FilePoint point = rawData[i];
+        float x = static_cast<float>(point.x);
+        float y = static_cast<float>(point.y);
+        float z = static_cast<float>(point.z);
+        finalPoints[i].pos = glm::vec3(x, y, z);
+
+        // update bb_min, bb_max
+        if (x < bb_min.x){bb_min.x = x;}
+        if (y < bb_min.y){bb_min.y = y;}
+        if (z < bb_min.z){bb_min.z = z;}
+        if (x > bb_max.x){bb_max.x = x;}
+        if (y > bb_max.y){bb_max.y = y;}
+        if (z > bb_max.z){bb_max.z = z;}
 
         // Convert Uchar [0-255] -> Float [0.0-1.0] (GLM Standard)
         finalPoints[i].color = glm::vec3(
-            static_cast<float>(rawData[i].r) / 255.0f,
-            static_cast<float>(rawData[i].g) / 255.0f,
-            static_cast<float>(rawData[i].b) / 255.0f
+            static_cast<float>(point.r) / 255.0f,
+            static_cast<float>(point.g) / 255.0f,
+            static_cast<float>(point.b) / 255.0f
         );
     }
 

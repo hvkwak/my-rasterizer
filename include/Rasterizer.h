@@ -23,6 +23,7 @@ private:
   bool setupWindow();
   bool setupShader(const std::string& read_shader_vert, const std::string& read_shader_frag);
   bool setupRasterizer();
+  bool setupCameraPose();
   bool setupInput();
   bool setupData(const std::string& read_filename);
   bool setupBuffer();
@@ -41,6 +42,7 @@ private:
   void handleWindowFocus(GLFWwindow* window, int focused);
 
   // callbacks
+  static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
   static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
   static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
   static void window_focus_callback(GLFWwindow* window, int focused);
@@ -51,6 +53,7 @@ private:
 
   // Camera
   Camera camera;
+  glm::vec3 camera_position;
   float lastX = WINDOW_WIDTH / 2.0f;
   float lastY = WINDOW_HEIGHT / 2.0f;
   bool firstMouse = true;
@@ -66,11 +69,15 @@ private:
 
   // VBO, VAO
   unsigned int VBO = 0, VAO = 0;
-
   bool glInitialized = false;
 
   // points
   std::vector<Point> points;
+
+  // bb_min, bb_max of the scene
+  glm::vec3 bb_min;
+  glm::vec3 bb_max;
+
 };
 
 
