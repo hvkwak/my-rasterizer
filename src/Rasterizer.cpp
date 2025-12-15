@@ -2,13 +2,15 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "Data.h"
+#include "utils.h"
 #include "Shader.h"
 #include <iostream>
+#include <cstdio>
+#include <cfloat>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
-Rasterizer::Rasterizer(){}
+Rasterizer::Rasterizer(bool isTest_): isTest(isTest_) {}
 
 
 Rasterizer::~Rasterizer(){
@@ -67,14 +69,12 @@ bool Rasterizer::setupRasterizer(){
  */
 bool Rasterizer::setupCameraPose(){
 
-  glm::vec3 center = 0.5f * (bb_max + bb_min);
-  glm::vec3 extent = (bb_max - bb_min);
-  float diag = glm::length(extent);
+  center = 0.5f * (bb_max + bb_min);
+  diag = glm::length((bb_max - bb_min));
 
-  // // Put camera: above (+Y) and in front (+Z or -Z depending on your world)
-  glm::vec3 position = center + glm::vec3(0.3f * diag, 0.5f * diag, 1.2f * diag);
-
-  camera.changePose(position, center);
+  // Put camera: above (+Y) and in front (+Z or -Z depending on your world)
+  camera_position = center + glm::vec3(0.5f * diag, 0.7f * diag, 1.0f * diag);
+  camera.changePose(camera_position, center);
   return true;
 }
 
@@ -121,10 +121,10 @@ bool Rasterizer::setupWindow(){
     window = nullptr;
     return false;
   }
-  // Setting Callbacks
+  //
   glfwMakeContextCurrent(window);
   glfwSetWindowUserPointer(window, this);
-  glfwSwapInterval(1);
+  glfwSwapInterval(0);
   return true;
 }
 
@@ -139,6 +139,7 @@ bool Rasterizer::setupInput(){
   glfwSetFramebufferSizeCallback(window, Rasterizer::framebuffer_size_callback);
   glfwSetCursorPosCallback(window, Rasterizer::mouse_callback);
   glfwSetWindowFocusCallback(window, Rasterizer::window_focus_callback);
+  glfwSetScrollCallback(window, Rasterizer::scroll_callback);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
   double xpos = 0.0;
@@ -198,15 +199,43 @@ bool Rasterizer::setupBuffer(){
   return true;
 }
 
+void Rasterizer::updateFPS(){
+  float currentFrame = static_cast<float>(glfwGetTime());
+  deltaTime = currentFrame - lastFrame;
+  lastFrame = currentFrame;
+
+  acc += deltaTime;
+  frames++;
+
+  if (acc > 1.0){
+    float fps = frames / acc;
+
+    char buf[128];
+    std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f", fps);
+    glfwSetWindowTitle(window, buf);
+
+    acc = 0.0f;
+    frames = 0;
+  }
+}
+
 void Rasterizer::render(){
 
   while (!glfwWindowShouldClose(window)) {
 
-    float currentFrame = static_cast<float>(glfwGetTime());
-    deltaTime = currentFrame - lastFrame;
-    lastFrame = currentFrame;
-
+    updateFPS();
     processInput();
+
+    if (isTest){
+      // test mode: orbit camera around scene center (time-based, radians)
+      const float angularSpeed = glm::radians(10.0f); // rad/sec
+      const float theta = angularSpeed * deltaTime;
+
+      const glm::vec3 dir = camera_position - center;
+      camera_position = center + (Rz(theta) * dir);
+      camera.changePose(camera_position, center);
+    }
+
     glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -232,6 +261,13 @@ void Rasterizer::render(){
  *        -> every frame to check continuous input states
  */
 void Rasterizer::processInput() {
+
+  // check if ESC pressed
+  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+
+  // test mode
+  if (isTest) return;
+
   // keys (continuous)
   if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.ProcessKeyboard(Camera::FORWARD, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.ProcessKeyboard(Camera::BACKWARD, deltaTime);
@@ -243,7 +279,6 @@ void Rasterizer::processInput() {
   if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_PLUS, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_MINUS, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_PLUS, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
 }
 

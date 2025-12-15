@@ -14,7 +14,7 @@ class Rasterizer
 public:
   bool init(const std::string& read_filename, const std::string& read_shader_vert, const std::string& read_shader_frag);
   void render();
-  Rasterizer();
+  Rasterizer(bool isTest_);
   ~Rasterizer();
 
 private:
@@ -47,6 +47,9 @@ private:
   static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
   static void window_focus_callback(GLFWwindow* window, int focused);
 
+  // updateFPS
+  void updateFPS();
+
   // settings
   const unsigned int WINDOW_WIDTH = 800;
   const unsigned int WINDOW_HEIGHT = 600;
@@ -63,9 +66,11 @@ private:
   const float z_near = 1.0;
   const float z_far = 100.0;
 
-  // timing
+  // timing to calculate FPS
   float deltaTime = 0.0f; // time between current frame and last frame
   float lastFrame = 0.0f;
+  float acc = 0.0f;
+  int frames = 0;
 
   // VBO, VAO
   unsigned int VBO = 0, VAO = 0;
@@ -77,6 +82,11 @@ private:
   // bb_min, bb_max of the scene
   glm::vec3 bb_min;
   glm::vec3 bb_max;
+  glm::vec3 center;
+
+  // camera work + testmode
+  float diag;
+  bool isTest;
 
 };
 

@@ -8,7 +8,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "Camera.h"
-#include <iostream>
 
 // constructor with vectors
 Camera::Camera(glm::vec3 position /*= glm::vec3(0.0f, 0.0f, 0.0f)*/, UpAxis axis_/*=UpAxis::Z*/, float yaw /*=YAW*/, float pitch /*=PITCH*/)
@@ -63,15 +62,15 @@ void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime) {
       Pitch += velocity*10.0;
       updateCameraVectors();
     }
-    std::cout << "Position: "
-              << Position.x << ", "
-              << Position.y << ", "
-              << Position.z << " |"
-              << "Yaw: "
-              << Yaw << " | "
-              << "Pitch: "
-              << Pitch
-              << std::endl;
+    // std::cout << "Position: "
+    //           << Position.x << ", "
+    //           << Position.y << ", "
+    //           << Position.z << " |"
+    //           << "Yaw: "
+    //           << Yaw << " | "
+    //           << "Pitch: "
+    //           << Pitch
+    //           << std::endl;
 }
 
 // processes input received from a mouse input system. Expects the offset
@@ -104,8 +103,8 @@ void Camera::changePose(const glm::vec3 &position, const glm::vec3 &target) {
   Position = position;
   updateYawPitch(target);
   updateCameraVectors();
-  std::cout << "Yaw: " << Yaw << std::endl; // left/right
-  std::cout << "Pitch: " << Pitch << std::endl; // "nodding"
+  // std::cout << "Yaw: " << Yaw << std::endl; // left/right
+  // std::cout << "Pitch: " << Pitch << std::endl; // "nodding"
 }
 
 /**

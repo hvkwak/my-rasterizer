@@ -1,20 +1,39 @@
 #include "Rasterizer.h"
 #include <string>
 
+bool ends_with(const std::string& s, const std::string& suffix) {
+  return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 int main(int argc, char **argv) {
 
-  // get the file names
+  // default files
   std::string read_shader_vert = "../src/shader/shader.vert";
   std::string read_shader_frag = "../src/shader/shader.frag";
-  std::string read_filename;
-  if (argc == 1){
-    // default.
-    read_filename = "../data/Barn.ply";
+  std::string read_filename = "../data/Barn.ply";
+  bool testmode = false;
+
+  for (int i = 1; i < argc; i++){
+    std::string arg = argv[i];
+    if (arg == "--test"){
+      testmode = true;
+      continue;
+    }
+    if (ends_with(arg, ".ply")){
+      read_filename = argv[i];
+      continue;
+    }
+    if (ends_with(arg, ".vert")){
+      read_shader_vert = argv[i];
+      continue;
+    }
+    if (ends_with(arg, ".frag")){
+      read_shader_frag = argv[i];
+      continue;
+    }
   }
-  if (argc == 2){
-    read_filename = argv[1];
-  }
-  Rasterizer rasterizer;
+
+  Rasterizer rasterizer(testmode);
   if (!rasterizer.init(read_filename, read_shader_vert, read_shader_frag)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
