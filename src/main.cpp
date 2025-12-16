@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   // default files
   std::string read_shader_vert = "../src/shader/shader.vert";
   std::string read_shader_frag = "../src/shader/shader.frag";
-  std::string read_filename = "../data/Barn.ply";
+  std::string read_filename = "../data/Church.ply";
   bool testmode = false;
 
   for (int i = 1; i < argc; i++){
@@ -32,8 +32,7 @@ int main(int argc, char **argv) {
       continue;
     }
   }
-
-  Rasterizer rasterizer(testmode);
+  Rasterizer rasterizer(testmode, 800, 600, 1.0, 100.0);
   if (!rasterizer.init(read_filename, read_shader_vert, read_shader_frag)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;

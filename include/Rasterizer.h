@@ -14,7 +14,7 @@ class Rasterizer
 public:
   bool init(const std::string& read_filename, const std::string& read_shader_vert, const std::string& read_shader_frag);
   void render();
-  Rasterizer(bool isTest_);
+  Rasterizer(bool isTest_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_);
   ~Rasterizer();
 
 private:
@@ -51,14 +51,14 @@ private:
   void updateFPS();
 
   // settings
-  const unsigned int WINDOW_WIDTH = 800;
-  const unsigned int WINDOW_HEIGHT = 600;
+  unsigned int window_width;
+  unsigned int window_height;
 
   // Camera
   Camera camera;
   glm::vec3 camera_position;
-  float lastX = WINDOW_WIDTH / 2.0f;
-  float lastY = WINDOW_HEIGHT / 2.0f;
+  float lastX /*= WINDOW_WIDTH / 2.0f*/;
+  float lastY /*= WINDOW_HEIGHT / 2.0f*/;
   bool firstMouse = true;
   bool hasFocus = true;
 

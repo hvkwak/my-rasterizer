@@ -10,7 +10,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Rasterizer::Rasterizer(bool isTest_): isTest(isTest_) {}
+Rasterizer::Rasterizer(bool isTest_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_)
+  : isTest(isTest_), window_width(window_width_), window_height(window_height_), z_near(z_near_), z_far(z_far_)
+{
+
+}
 
 
 Rasterizer::~Rasterizer(){
@@ -55,9 +59,9 @@ bool Rasterizer::setupRasterizer(){
     return false;
   }
   glInitialized = true;
-  glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+  glViewport(0, 0, window_width, window_height);
   glEnable(GL_DEPTH_TEST);
-  glPointSize(3.0f);
+  glPointSize(1.0f);
   return true;
 }
 
@@ -73,7 +77,8 @@ bool Rasterizer::setupCameraPose(){
   diag = glm::length((bb_max - bb_min));
 
   // Put camera: above (+Y) and in front (+Z or -Z depending on your world)
-  camera_position = center + glm::vec3(0.5f * diag, 0.7f * diag, 1.0f * diag);
+  // Take 5% of diag
+  camera_position = center + glm::vec3(0.05f * diag, 0.05f * diag, 0.05f * diag);
   camera.changePose(camera_position, center);
   return true;
 }
@@ -97,7 +102,7 @@ bool Rasterizer::setupShader(const std::string& read_shader_vert, const std::str
 
   shader->use();
   glm::mat4 model = glm::mat4(1.0f); // identity for now
-  glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, z_near, z_far);
+  glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, z_near, z_far);
   shader->setMat4("Model", model);
   shader->setMat4("Proj", proj);
   return true;
@@ -114,7 +119,7 @@ bool Rasterizer::setupWindow(){
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   // glfw window creation
-  window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "MyRasterizer", NULL, NULL);
+  window = glfwCreateWindow(window_width, window_height, "MyRasterizer", NULL, NULL);
   if (window == NULL) {
     std::cout << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
