@@ -2,7 +2,7 @@
 A 3D point cloud rasterizer built with C++ and OpenGL. 
 
 ## News
-- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (67M Points) with CPU `Ryzen 7 PRO 5850U (Radeon Vega iGPU)` when tested with a 10 degrees/sec orbit camera. 
+- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (67M Points) with CPU `Ryzen 7 PRO 5850U (Radeon Vega iGPU)` when tested with a 10 degrees/sec orbit camera pose. 
 
 ## Features
 - Real-time 3D point cloud rendering from PLY file format
@@ -17,13 +17,13 @@ A 3D point cloud rasterizer built with C++ and OpenGL.
 - GLFW 3.4
 - GLM (OpenGL Mathematics library)
 
-## Datasets
-Compatible with 3D point cloud datasets in `.ply` format. Datasets are stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
-
-## Installation
+Install the following packages
 ```bash
 sudo apt install cmake build-essential libgl1-mesa-dev libglfw3-dev libglm-dev
 ```
+
+## Datasets
+Compatible with 3D point cloud datasets in `.ply` format. Datasets should be stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
 
 ## Build
 1. Clone the repository:
@@ -48,8 +48,7 @@ Run the program in the `build` directory:
 ```bash
 ./main
 ```
-
-This will load the default model (`../data/Barn.ply`) with default shaders.
+This will load the default model (e.g. `../data/Barn.ply`) with default shaders.
 
 ### Command Line Arguments
 You can specify custom files via command line arguments:
@@ -59,7 +58,7 @@ You can specify custom files via command line arguments:
 ```
 
 **Available Options:**
-- `--test`: Run in test mode
+- `--test`: Run in test mode (orbit camera pose)
 - `*.ply`: Specify a PLY model file
 - `*.vert`: Specify a custom vertex shader
 - `*.frag`: Specify a custom fragment shader
@@ -71,8 +70,8 @@ You can specify custom files via command line arguments:
 ```
 
 ### Camera Controls
-- **FPS Mode**: Navigate using standard FPS controls
-- **Orbit Mode**: Rotate around the model
+- **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw/Pitch Contrtol with J, L, I, K)
+- **Test Mode**: Rotate around the model with orbit camera (use argument `--test` for this mode)
 
 ## License
 [Add your license here]
