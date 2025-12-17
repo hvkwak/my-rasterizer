@@ -1,13 +1,13 @@
 # My Rasterizer
-An implementation of 3D point cloud rasterizer built with C++ and OpenGL. 
+A 3D point cloud rasterizer built with C++ and OpenGL. 
 
 ## News
-- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control that reaches 30 FPS on CPU `Ryzen 7 PRO 5850U (Radeon Vega iGPU)`
+- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (67M Points) with CPU `Ryzen 7 PRO 5850U (Radeon Vega iGPU)` when tested with a 10 degrees/sec orbit camera. 
 
 ## Features
 - Real-time 3D point cloud rendering from PLY file format
 - Custom vertex and fragment shader support
-- Interactive camera controls (FPS and orbit camera poses for test mode)
+- Interactive camera controls (orbit camera modes for testing)
 - OpenGL-based rendering pipeline
 
 ## Prerequisites
@@ -18,7 +18,7 @@ An implementation of 3D point cloud rasterizer built with C++ and OpenGL.
 - GLM (OpenGL Mathematics library)
 
 ## Datasets
-3D point cloud datasets in `.ply` are compatible. Datasets are kept in `data`. This implementation is built based on the well-known public 3D point cloud datasets(ground truth `.ply` files) at `https://www.tanksandtemples.org/`.
+Compatible with 3D point cloud datasets in `.ply` format. Datasets are stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
 
 ## Installation
 ```bash
@@ -44,7 +44,7 @@ The executable `main` will be created in the `build` directory.
 ## Usage
 
 ### Basic Usage
-Run the program in `build` directory:
+Run the program in the `build` directory:
 ```bash
 ./main
 ```
