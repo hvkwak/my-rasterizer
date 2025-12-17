@@ -2,7 +2,7 @@
 A 3D point cloud rasterizer built with C++ and OpenGL. 
 
 ## News
-- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (67M Points) with CPU `Ryzen 7 PRO 5850U (Radeon Vega iGPU)` when tested with a 10 degrees/sec orbit camera pose. 
+- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (67M Points) with CPU Ryzen 7 PRO 5850U (Radeon Vega iGPU) when tested with a 10 degrees/sec orbit camera pose. 
 
 ## Features
 - Real-time 3D point cloud rendering from PLY file format
