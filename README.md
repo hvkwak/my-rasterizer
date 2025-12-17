@@ -74,7 +74,7 @@ You can specify custom files via command line arguments:
 - **Test Mode**: Rotate around the model with orbit camera (use argument `--test` for this mode)
 
 ## License
-[Add your license here]
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 - OpenGL for the graphics API
