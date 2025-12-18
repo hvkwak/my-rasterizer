@@ -1,0 +1,5 @@
+data/*.bin
+data/*.ply
+build/*
+.cache/*
+*.org

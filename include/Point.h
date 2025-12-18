@@ -6,15 +6,26 @@
 #include <glm/gtc/type_ptr.hpp>
 
 struct Point {
-    glm::vec3 pos;
-    glm::vec3 color;
+  glm::vec3 pos;
+  glm::vec3 color;
 };
 
 #pragma pack(push, 1)
-struct FilePoint {
-    double x, y, z;        // File has 64-bit doubles
-    unsigned char r, g, b; // File has 8-bit integers
+struct PointDisk {
+  float x, y, z; // 4 bytes each
+  uint8_t r, g, b; // 1 byte each
 };
 #pragma pack(pop)
+static_assert(sizeof(PointDisk) == 15);
+
+#pragma pack(push, 1)
+struct FilePoint {
+  // Points in .ply
+  double x, y, z;        // File has 64-bit doubles, 8 bytes each
+  unsigned char r, g, b; // File has 8-bit integers
+};
+#pragma pack(pop)
+
+static_assert(sizeof(FilePoint) == 27);
 
 #endif

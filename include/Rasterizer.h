@@ -6,27 +6,36 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Point.h"
+#include "DataHandler.h"
 #include <vector>
 
 
 class Rasterizer
 {
 public:
-  bool init(const std::string& read_filename, const std::string& read_shader_vert, const std::string& read_shader_frag);
+  bool init(const std::string& plyPath, const std::string& outDir, const std::string& shader_vert, const std::string& shader_frag, bool isTest_, bool isOOC_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_);
   void render();
-  Rasterizer(bool isTest_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_);
+  Rasterizer();
   ~Rasterizer();
 
 private:
 
   // setups
   bool setupWindow();
-  bool setupShader(const std::string& read_shader_vert, const std::string& read_shader_frag);
+  bool setupShader(const std::string& shader_vert, const std::string& shader_frag);
   bool setupRasterizer();
   bool setupCameraPose();
   bool setupInput();
-  bool setupData(const std::string& read_filename);
+  bool setupData(const std::string& plyPathh, const std::string& outDir);
   bool setupBuffer();
+
+  // Data Handler
+  DataHandler dataHandler;
+
+  // Bboxes of the loaded scene
+  glm::vec3 bb_min;
+  glm::vec3 bb_max;
+  glm::vec3 center;
 
   // Shader
   Shader *shader = nullptr;
@@ -57,14 +66,15 @@ private:
   // Camera
   Camera camera;
   glm::vec3 camera_position;
+  float diag;
   float lastX /*= WINDOW_WIDTH / 2.0f*/;
   float lastY /*= WINDOW_HEIGHT / 2.0f*/;
   bool firstMouse = true;
   bool hasFocus = true;
 
   // z_near, z_far
-  const float z_near = 1.0;
-  const float z_far = 100.0;
+  float z_near;
+  float z_far;
 
   // timing to calculate FPS
   float deltaTime = 0.0f; // time between current frame and last frame
@@ -79,15 +89,9 @@ private:
   // points
   std::vector<Point> points;
 
-  // bb_min, bb_max of the scene
-  glm::vec3 bb_min;
-  glm::vec3 bb_max;
-  glm::vec3 center;
-
-  // camera work + testmode
-  float diag;
+  // Modes Selection
   bool isTest;
-
+  bool isOOC;
 };
 
 

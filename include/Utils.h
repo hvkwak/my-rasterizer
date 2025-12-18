@@ -4,6 +4,16 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+inline int clampi(int v, int lo, int hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+inline void bbox_expand(glm::vec3& mn, glm::vec3& mx, const glm::vec3& p) {
+  mn = glm::min(mn, p);
+  mx = glm::max(mx, p);
+}
+
+
 // Rx (rotate around X axis by theta radians)
 /* glm::mat3 Rx(float theta); */
 /* glm::mat3 Ry(float theta); */

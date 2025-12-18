@@ -7,33 +7,41 @@ bool ends_with(const std::string& s, const std::string& suffix) {
 
 int main(int argc, char **argv) {
 
-  // default files
-  std::string read_shader_vert = "../src/shader/shader.vert";
-  std::string read_shader_frag = "../src/shader/shader.frag";
-  std::string read_filename = "../data/Church.ply";
-  bool testmode = false;
+  // default settings
+  std::string shader_vert = "../src/shader/shader.vert";
+  std::string shader_frag = "../src/shader/shader.frag";
+  std::string plyPath = "../data/Church.ply";
+  std::string outDir = "";
+  bool test = false;
+  bool ooc = false;
 
   for (int i = 1; i < argc; i++){
     std::string arg = argv[i];
     if (arg == "--test"){
-      testmode = true;
+      test = true;
+      continue;
+    }
+    if (arg == "--ooc"){
+      // out-of-core mode: points will be seperated into blocks in the directory "data"
+      outDir = "../data";
+      ooc = true;
       continue;
     }
     if (ends_with(arg, ".ply")){
-      read_filename = argv[i];
+      plyPath = argv[i];
       continue;
     }
     if (ends_with(arg, ".vert")){
-      read_shader_vert = argv[i];
+      shader_vert = argv[i];
       continue;
     }
     if (ends_with(arg, ".frag")){
-      read_shader_frag = argv[i];
+      shader_frag = argv[i];
       continue;
     }
   }
-  Rasterizer rasterizer(testmode, 800, 600, 1.0, 100.0);
-  if (!rasterizer.init(read_filename, read_shader_vert, read_shader_frag)) {
+  Rasterizer rasterizer;
+  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, test, ooc, 800, 600, 1.0, 100.0)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
   }

@@ -26,7 +26,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/glad.c
-    src/Data.cpp
+    src/DataHandler.cpp
     src/Rasterizer.cpp
     src/Camera.cpp
 )
@@ -46,6 +46,8 @@ find_package(OpenGL REQUIRED)
 find_package(GLM REQUIRED)
 message(STATUS "GLM included at ${GLM_INCLUDE_DIR}")
 
+# Threading support for Queue class
+find_package(Threads REQUIRED)
 
 # GLFW is the window / context / input library.
 # On Ubuntu, install it with:
@@ -62,10 +64,12 @@ add_subdirectory(${GLFW_SRC_DIR} ${CMAKE_BINARY_DIR}/glfw-build)
 # Link our executable with:
 #  - OpenGL::GL (the OpenGL library)
 #  - glfw (the GLFW library, which also pulls in X11 stuff on Linux)
+#  - Threads::Threads (pthread for Queue class)
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         OpenGL::GL
         glfw
+        Threads::Threads
 )
 
 # ---- Notes ----

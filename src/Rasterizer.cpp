@@ -1,20 +1,17 @@
 #include "Rasterizer.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "Data.h"
-#include "utils.h"
+#include "DataHandler.h"
+#include "Utils.h"
 #include "Shader.h"
 #include <iostream>
 #include <cstdio>
 #include <cfloat>
+#include <limits>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Rasterizer::Rasterizer(bool isTest_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_)
-  : isTest(isTest_), window_width(window_width_), window_height(window_height_), z_near(z_near_), z_far(z_far_)
-{
-
-}
+Rasterizer::Rasterizer(){}
 
 
 Rasterizer::~Rasterizer(){
@@ -38,13 +35,30 @@ Rasterizer::~Rasterizer(){
   glfwTerminate();
 }
 
-bool Rasterizer::init(const std::string& read_filename, const std::string& read_shader_vert, const std::string& read_shader_frag){
+bool Rasterizer::init(const std::string& plyPath,
+                      const std::string& outDir,
+                      const std::string& shader_vert,
+                      const std::string& shader_frag,
+                      bool isTest_,
+                      bool isOOC_,
+                      unsigned int window_width_,
+                      unsigned int window_height_,
+                      float z_near_,
+                      float z_far_){
+  // Set member variables
+  isTest = isTest_;
+  isOOC = isOOC_;
+  window_width = window_width_;
+  window_height = window_height_;
+  z_near = z_near_;
+  z_far = z_far_;
+
   if (!setupWindow()) return false;
-  if (!setupData(read_filename)) return false; // runs before setupRasterizer().
+  if (!setupData(plyPath, outDir)) return false; // runs before setupRasterizer().
   if (!setupRasterizer()) return false; // runs before CameraPose()
   if (!setupCameraPose()) return false;
   if (!setupInput()) return false;
-  if (!setupShader(read_shader_vert, read_shader_frag)) return false;
+  if (!setupShader(shader_vert, shader_frag)) return false;
   if (!setupBuffer()) return false;
   return true;
 }
@@ -83,10 +97,10 @@ bool Rasterizer::setupCameraPose(){
   return true;
 }
 
-bool Rasterizer::setupShader(const std::string& read_shader_vert, const std::string& read_shader_frag){
+bool Rasterizer::setupShader(const std::string& shader_vert, const std::string& shader_frag){
   // build and compile our shader program
   try {
-    shader = new Shader(read_shader_vert.c_str(), read_shader_frag.c_str()); // keep it like this :(
+    shader = new Shader(shader_vert.c_str(), shader_frag.c_str()); // keep it like this :(
   } catch (const std::exception& e) {
     std::cerr << "Failed to create Shader: " << e.what() << std::endl;
     shader = nullptr;
@@ -156,11 +170,20 @@ bool Rasterizer::setupInput(){
   return true;
 }
 
-bool Rasterizer::setupData(const std::string& read_filename){
-  // Replace with your actual file path to setup vertex data
-  bb_min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-  bb_max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-  points = readPLY(read_filename, bb_min, bb_max);
+bool Rasterizer::setupData(const std::string& plyPath, const std::string& outDir){
+
+  // Reset bounding box to initial state
+  bb_min = glm::vec3(std::numeric_limits<float>::max());
+  bb_max = glm::vec3(std::numeric_limits<float>::lowest());
+
+  if (isOOC){
+    // initialize Out-of-core mode
+    dataHandler.createBlocks(plyPath, outDir, bb_min, bb_max);
+    return false;
+  } else {
+    // keep all points in one std::vector.
+    points = dataHandler.readPLY(plyPath, bb_min, bb_max);
+  }
 
   if (points.empty()) {
     std::cerr
@@ -168,6 +191,7 @@ bool Rasterizer::setupData(const std::string& read_filename){
         << std::endl;
     return false;
   }
+
   std::cout << "bb_min: "
             << bb_min.x << ", "
             << bb_min.y << ", "
@@ -233,7 +257,7 @@ void Rasterizer::render(){
 
     if (isTest){
       // test mode: orbit camera around scene center (time-based, radians)
-      const float angularSpeed = glm::radians(10.0f); // rad/sec
+      const float angularSpeed = glm::radians(10.0f); // 10.0 degrees/sec
       const float theta = angularSpeed * deltaTime;
 
       const glm::vec3 dir = camera_position - center;
