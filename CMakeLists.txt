@@ -29,6 +29,7 @@ add_executable(${PROJECT_NAME}
     src/DataHandler.cpp
     src/Rasterizer.cpp
     src/Camera.cpp
+    src/Cache.cpp
 )
 
 # ---- Include directories ----

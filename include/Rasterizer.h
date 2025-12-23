@@ -13,7 +13,7 @@
 class Rasterizer
 {
 public:
-  bool init(const std::string& plyPath, const std::string& outDir, const std::string& shader_vert, const std::string& shader_frag, bool isTest_, bool isOOC_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_);
+  bool init(const std::string& plyPath, const std::string& outDir, const std::string& shader_vert, const std::string& shader_frag, bool isTest_, bool isOOC_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_, float rotateAngle_);
   void render();
   Rasterizer();
   ~Rasterizer();
@@ -28,6 +28,8 @@ private:
   bool setupInput();
   bool setupData(const std::string& plyPathh, const std::string& outDir);
   bool setupBuffer();
+  bool setupBufferVer2(const std::string& outDir);
+  bool setupBufferBlocks();
 
   // Data Handler
   DataHandler dataHandler;
@@ -81,6 +83,7 @@ private:
   float lastFrame = 0.0f;
   float acc = 0.0f;
   int frames = 0;
+  float angularSpeed;// = glm::radians(10.0f); // 10.0 degrees/sec
 
   // VBO, VAO
   unsigned int VBO = 0, VAO = 0;

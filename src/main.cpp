@@ -5,6 +5,7 @@ bool ends_with(const std::string& s, const std::string& suffix) {
   return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+
 int main(int argc, char **argv) {
 
   // default settings
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
     }
   }
   Rasterizer rasterizer;
-  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, test, ooc, 800, 600, 1.0, 100.0)) {
+  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, test, ooc, 800, 600, 1.0, 100.0, 10.0)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
   }

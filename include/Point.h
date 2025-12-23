@@ -11,12 +11,12 @@ struct Point {
 };
 
 #pragma pack(push, 1)
-struct PointDisk {
+struct PointOOC {
   float x, y, z; // 4 bytes each
   uint8_t r, g, b; // 1 byte each
 };
 #pragma pack(pop)
-static_assert(sizeof(PointDisk) == 15);
+static_assert(sizeof(PointOOC) == 15);
 
 #pragma pack(push, 1)
 struct FilePoint {
