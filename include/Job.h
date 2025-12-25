@@ -1,20 +1,16 @@
 #ifndef JOB_H
 #define JOB_H
 
-#include <string>
-
-
 /**
- * @brief Jobs for Worker Threads
+ * @brief Jobs and Results for Worker Threads
  */
 struct Job {
-  int id;
-  std::string payload;
+  int id; // block id for load
 };
 
 struct Result {
-  int job_id;
-  std::string message;
+  int id; // block id for visualization
+  // std::vector<Point>
 };
 
 #endif // JOB_H

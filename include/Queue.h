@@ -50,6 +50,20 @@ public:
   }
 
   /**
+   * @brief Try to pop without blocking.
+   * @param out Reference to store the popped value
+   * @return true if item was popped, false if queue was empty
+   */
+  bool try_pop(T& out) {
+    std::lock_guard<std::mutex> lk(m_);
+    if (q_.empty()) return false;
+
+    out = std::move(q_.front());
+    q_.pop();
+    return true;
+  }
+
+  /**
    * @brief Signal all threads to stop waiting and exit.
    *
    * Sets the stop flag and wakes all sleeping threads.

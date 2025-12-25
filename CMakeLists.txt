@@ -26,7 +26,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/glad.c
-    src/DataHandler.cpp
+    src/DataManager.cpp
     src/Rasterizer.cpp
     src/Camera.cpp
     src/Cache.cpp

@@ -1,7 +1,7 @@
 #include "Rasterizer.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "DataHandler.h"
+#include "DataManager.h"
 #include "Utils.h"
 #include "Shader.h"
 #include <iostream>
@@ -59,12 +59,16 @@ bool Rasterizer::init(const std::string& plyPath,
 
   // setups
   if (!setupWindow()) return false;
-  if (!setupData(plyPath, outDir)) return false; // runs before setupRasterizer().
-  if (!setupRasterizer()) return false; // runs before CameraPose()
+  if (!setupDataManager(plyPath, outDir)) return false;
+  if (!setupRasterizer()) return false;
   if (!setupCameraPose()) return false;
-  if (!setupInput()) return false;
+  if (!setupCallbacks()) return false;
   if (!setupShader(shader_vert, shader_frag)) return false;
-  if (!setupBuffer()) return false;
+
+  // setup static Buffer if not out-of-core mode
+  // if (!isOOC) {
+  //   if (!setupBuffer()) return false;
+  // }
   return true;
 }
 
@@ -156,7 +160,7 @@ bool Rasterizer::setupWindow(){
  * @brief setup input and callbacks
  *
  */
-bool Rasterizer::setupInput(){
+bool Rasterizer::setupCallbacks(){
   if (window == nullptr){
     return false;
   }
@@ -175,38 +179,18 @@ bool Rasterizer::setupInput(){
   return true;
 }
 
-bool Rasterizer::setupData(const std::string& plyPath, const std::string& outDir){
+bool Rasterizer::setupDataManager(const std::string& plyPath, const std::string& outDir){
 
   // Reset bounding box to initial state
   bb_min = glm::vec3(std::numeric_limits<float>::max());
   bb_max = glm::vec3(std::numeric_limits<float>::lowest());
 
-  if (isOOC){
-    // initialize Out-of-core mode
-    if (!dataHandler.init(outDir)){
-      std::cerr << "Error: DataHandler.init(). Exiting." << std::endl;
-      return false;
-    }
-    if (!dataHandler.createBlocks(plyPath, bb_min, bb_max)){
-      std::cerr << "Error: DataHandler.createBlocks(). Exiting." << std::endl;
-      return false;
-    }
-    // if (!dataHandler.loadPoints()){
-    //   std::cerr << "Error: DataHandler.createBlocks(). Exiting." << std::endl;
-    //   return false;
-    // }
-  } else {
-    // keep all points in one std::vector.
-    points = dataHandler.readPLY(plyPath, bb_min, bb_max);
-  }
-
-  // check if all points are loaded
-  if (points.empty()) {
-    std::cerr
-        << "Error: Could not load PLY file or file was corrupted. Exiting."
-        << std::endl;
+  // initialize Data Manager
+  if(!dataManager.init(plyPath, outDir, isOOC, bb_min, bb_max)){
+    std::cerr << "Error: DataManager.init(). Exiting." << std::endl;
     return false;
   }
+
   std::cout << "bb_min: "
             << bb_min.x << ", "
             << bb_min.y << ", "
@@ -225,7 +209,6 @@ bool Rasterizer::setupData(const std::string& plyPath, const std::string& outDir
  * @return true, if setup is successful
  */
 bool Rasterizer::setupBuffer(){
-  if (!isOOC && points.empty()) return false;
 
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
@@ -250,7 +233,6 @@ bool Rasterizer::setupBuffer(){
  * @return true, if setup is successful
  */
 bool Rasterizer::setupBufferBlocks(){
-
 
   return true;
 }
@@ -374,6 +356,10 @@ void Rasterizer::render(){
       const glm::vec3 dir = camera_position - center;
       camera_position = center + (Rz(theta) * dir);
       camera.changePose(camera_position, center);
+    }
+
+    if (isOOC) {
+      // setup dynamic buffer
     }
 
     glClearColor(0.05f, 0.05f, 0.08f, 1.0f);

@@ -6,7 +6,7 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Point.h"
-#include "DataHandler.h"
+#include "DataManager.h"
 #include <vector>
 
 
@@ -25,14 +25,17 @@ private:
   bool setupShader(const std::string& shader_vert, const std::string& shader_frag);
   bool setupRasterizer();
   bool setupCameraPose();
-  bool setupInput();
-  bool setupData(const std::string& plyPathh, const std::string& outDir);
+  bool setupCallbacks();
+  bool setupDataManager(const std::string& plyPathh, const std::string& outDir);
   bool setupBuffer();
   bool setupBufferVer2(const std::string& outDir);
   bool setupBufferBlocks();
 
-  // Data Handler
-  DataHandler dataHandler;
+  // Data Manager
+  DataManager dataManager;
+
+  // Queue
+  Queue<Result> resultQ;
 
   // Bboxes of the loaded scene
   glm::vec3 bb_min;
