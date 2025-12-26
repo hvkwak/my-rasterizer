@@ -13,10 +13,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 const size_t BATCH = 1u << 16; // e.g. 65536.
-constexpr int BLOCKS = 1000;
 constexpr size_t CACHE_SIZE = 128;
 constexpr size_t FLUSH_POINTS = 4096;
 constexpr int NUM_WORKERS = 5;
+constexpr int NUM_BLOCKS = 1000;
 
 class DataManager {
 
@@ -24,7 +24,10 @@ public:
   DataManager();
 
   // sets up DataManager/Cache
-  bool init(const std::string & plyPath, const std::string &outDir, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_);
+  bool init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_);
+
+  // load Blocks
+  void loadBlocks();
 
   // Get result from worker threads (non-blocking)
   bool getResult(Result& out);
@@ -51,14 +54,16 @@ private:
   Queue<Result> resultQ;
   std::vector<std::thread> workers;
   std::vector<Block> blocks;
+  std::string outDir;
 
   // load .ply and create blocks
   bool readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_);
   bool createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_);
 
-  void flush(int id, std::array<std::vector<PointOOC>, BLOCKS> &outBuf);
+  void flush(int id, std::array<std::vector<Point>, NUM_BLOCKS> &outBuf);
   void bboxExpand(const glm::vec3 &p, glm::vec3 &bb_min_, glm::vec3 &bb_max);
-  static void workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ);
+
+  static void workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ, const std::string& outDir);
 };
 
 #endif // DATAMANAGER_H

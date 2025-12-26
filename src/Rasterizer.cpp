@@ -15,7 +15,6 @@
 
 Rasterizer::Rasterizer(){}
 
-
 Rasterizer::~Rasterizer(){
   if (shader != nullptr){
     if (glInitialized && shader->ID != 0) glDeleteProgram(shader->ID);
@@ -252,7 +251,7 @@ bool Rasterizer::setupBufferVer2(const std::string& outDir){
   points.reserve(10000000); // Reserve space for approx 10M points (adjust as needed)
 
   // Read all 1000 block files
-  for (int id = 0; id < BLOCKS; ++id) {
+  for (int id = 0; id < NUM_BLOCKS; ++id) {
     char name[64];
     std::snprintf(name, sizeof(name), "block_%04d.bin", id);
     std::string filePath = (std::filesystem::path(outDir) / name).string();
@@ -271,26 +270,22 @@ bool Rasterizer::setupBufferVer2(const std::string& outDir){
       continue; // Skip empty blocks
     }
 
-    // Read all PointOOC structs
-    std::vector<PointOOC> blockPoints(count);
-    infile.read(reinterpret_cast<char*>(blockPoints.data()), count * sizeof(PointOOC));
+    // Read all Point structs
+    std::vector<Point> blockPoints(count);
+    infile.read(reinterpret_cast<char*>(blockPoints.data()), count * sizeof(Point));
 
-    if ((uint32_t)infile.gcount() != count * sizeof(PointOOC)) {
+    if ((uint32_t)infile.gcount() != count * sizeof(Point)) {
       std::cerr << "Error: Failed to read complete data from: " << filePath << std::endl;
       infile.close();
       return false;
     }
     infile.close();
 
-    // Convert PointOOC -> Point
+    // Convert FilePoint -> Point
     for (const auto& pooc : blockPoints) {
       Point p;
-      p.pos = glm::vec3(pooc.x, pooc.y, pooc.z);
-      p.color = glm::vec3(
-        static_cast<float>(pooc.r) / 255.0f,
-        static_cast<float>(pooc.g) / 255.0f,
-        static_cast<float>(pooc.b) / 255.0f
-      );
+      p.pos = pooc.pos;
+      p.color = pooc.color;
       points.push_back(p);
     }
   }
@@ -300,7 +295,7 @@ bool Rasterizer::setupBufferVer2(const std::string& outDir){
     return false;
   }
 
-  std::cout << "Loaded " << points.size() << " points from " << BLOCKS << " block files." << std::endl;
+  std::cout << "Loaded " << points.size() << " points from " << NUM_BLOCKS << " block files." << std::endl;
 
   // Now upload to GPU
   glGenVertexArrays(1, &VAO);
@@ -349,17 +344,12 @@ void Rasterizer::render(){
     processInput();
 
     if (isTest){
-
       // test mode: orbit camera around scene center
       const float theta = angularSpeed * deltaTime;
 
       const glm::vec3 dir = camera_position - center;
       camera_position = center + (Rz(theta) * dir);
       camera.changePose(camera_position, center);
-    }
-
-    if (isOOC) {
-      // setup dynamic buffer
     }
 
     glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
@@ -369,6 +359,13 @@ void Rasterizer::render(){
 
     glm::mat4 view = camera.GetViewMatrix();
     shader->setMat4("View", view);
+
+    if (isOOC) {
+
+      // load of blocks out-of-core
+      loadBlocks(/*Camera Parameters hier drin*/);
+
+    }
 
     // Bind VAO containing our point cloud
     glBindVertexArray(VAO);

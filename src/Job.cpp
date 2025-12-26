@@ -1,30 +1,24 @@
-#include "Job.h"
-#include "Queue.h"
-#include <thread>
-#include <string>
-#include <chrono>
+// #include "Job.h"
 
-void workerMain(int worker_id,
-                Queue<Job>& jobQ,
-                Queue<Result>& resultQ)
-{
-  Job job;
-  while (jobQ.pop(job)) {
-    // mock CPU work
-    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+// void workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ)
+// {
+//   Job job;
+//   while (jobQ.pop(job)) {
+//     // mock CPU work
+//     std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-    // Create Results
-    Result r;
-    r.job_id = job.id;
-    r.message = "Hello from worker " + std::to_string(worker_id)
-              + " | processed job " + std::to_string(job.id)
-              + " | payload = [" + job.payload + "]";
+//     // Create Results
+//     Result r;
+//     r.job_id = job.id;
+//     r.message = "Hello from worker " + std::to_string(worker_id)
+//               + " | processed job " + std::to_string(job.id)
+//               + " | payload = [" + job.payload + "]";
 
-    // move to Result
-    resultQ.push(std::move(r));
-  }
-  // jobQ.stop() called -> threads are over
-}
+//     // move to Result
+//     resultQ.push(std::move(r));
+//   }
+//   // jobQ.stop() called -> threads are over
+// }
 
 // Example Code
 // ------------------------------

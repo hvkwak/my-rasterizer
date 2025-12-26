@@ -64,6 +64,9 @@ private:
   // updateFPS
   void updateFPS();
 
+  // load Blocks
+  void loadBlocks();
+
   // settings
   unsigned int window_width;
   unsigned int window_height;

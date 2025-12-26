@@ -4,6 +4,7 @@
 #include "Point.h"
 #include "Utils.h"
 #include "Cache.h"
+#include "Job.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -14,7 +15,7 @@
 // Constructor
 DataManager::DataManager() {}
 
-bool DataManager::init(const std::string & plyPath, const std::string &outDir, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_)
+bool DataManager::init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_)
 {
   if (!readPLY(plyPath, bb_min_, bb_max_)){
     std::cerr << "Error: Failed to do readPLY()" <<  std::endl;
@@ -22,6 +23,9 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir, b
   }
 
   if (isOOC_){
+    // Store outDir for later use
+    outDir = outDir_;
+
     // sets up LRU cache for file writes when reading .ply file
     if (!cache.init(outDir, CACHE_SIZE)) {
       std::cerr << "Error: Failed to initialize cache with directory: " << outDir << std::endl;
@@ -30,7 +34,7 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir, b
     // sets up workers for data load out-of-core
     workers.resize(NUM_WORKERS);
     for (int i = 0; i < NUM_WORKERS; i++){
-      workers.emplace_back(DataManager::workerMain, i, std::ref(jobQ), std::ref(resultQ));
+      workers.emplace_back(workerMain, i, std::ref(jobQ), std::ref(resultQ), outDir);
     }
   }
 
@@ -109,7 +113,6 @@ bool DataManager::readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::v
   return true;
 }
 
-
 bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_)
 {
   std::ifstream file(plyPath, std::ios::binary);
@@ -122,18 +125,17 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
   glm::vec3 extent = bb_max_ - bb_min_;
   glm::vec3 cell = extent / 10.0f;
 
-  // PART 2: write block files + LRU Cache
-  // Initialize blocks vector
-  blocks.resize(BLOCKS);
+  // write block files with LRU Cache
+  blocks.resize(NUM_BLOCKS);
 
-  for (int id = 0; id < BLOCKS; ++id) {
+  for (int id = 0; id < NUM_BLOCKS; ++id) {
     char name[64];
     std::snprintf(name, sizeof(name), "block_%04d.bin", id);
     auto &os = cache.get(id);
   }
 
   std::vector<FilePoint> buf(BATCH);
-  std::array<std::vector<PointOOC>, BLOCKS> outBuf;
+  std::array<std::vector<Point>, NUM_BLOCKS> outBuf;
   for (auto &v : outBuf)
     v.reserve(FLUSH_POINTS);
 
@@ -151,14 +153,16 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
 
     for (uint64_t i = 0; i < take; ++i) {
       const auto &fp = buf[i];
-      float x = (float)fp.x, y = (float)fp.y, z = (float)fp.z;
+      float x = (float)fp.x;
+      float y = (float)fp.y;
+      float z = (float)fp.z;
 
       int ix = clampi((int)((x - bb_min_.x) / cell.x), 0, 9);
       int iy = clampi((int)((y - bb_min_.y) / cell.y), 0, 9);
       int iz = clampi((int)((z - bb_min_.z) / cell.z), 0, 9);
       int id = ix + 10 * iy + 100 * iz;
 
-      outBuf[id].push_back(PointOOC{x, y, z, fp.r, fp.g, fp.b});
+      outBuf[id].push_back(Point{glm::vec3(x, y, z), glm::vec3(fp.r/255.0f, fp.g/255.0f, fp.g/255.0f)});
       blocks[id].count++;
 
       if (outBuf[id].size() >= FLUSH_POINTS)
@@ -168,41 +172,71 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
   }
 
   // flush leftovers
-  for (int id = 0; id < BLOCKS; ++id)
+  for (int id = 0; id < NUM_BLOCKS; ++id)
     flush(id, outBuf);
 
   // patch counts
-  for (int id = 0; id < BLOCKS; ++id) {
+  for (int id = 0; id < NUM_BLOCKS; ++id) {
     auto &os = cache.get(id);
     os.seekp(0, std::ios::beg);
     os.write(reinterpret_cast<const char *>(&blocks[id].count), sizeof(uint32_t));
   }
   cache.close_all();
 
-
   return true;
 }
 
-bool DataManager::getResult(Result& out) {
-  return resultQ.try_pop(out);
+void DataManager::loadBlocks(){
+
+  for (int i = 0; i < NUM_BLOCKS; i++){
+
+    // TODO: add AABB test
+
+    // enqueue to load if visible
+    if (blocks[i].isVisible){
+      Job job;
+      job.id = i;
+      job.count = blocks[i].count;
+      jobQ.push(std::move(job));
+    }
+
+  }
 }
 
-
-void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ)
+void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ, const std::string& outDir)
 {
   Job job;
   while (jobQ.pop(job)) {
-    // mock CPU work
-    std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
     // Create Results
     Result r;
     r.id = job.id;
 
+    // Construct filepath: block_XXXX.bin
+    char filename[64];
+    std::snprintf(filename, sizeof(filename), "block_%04d.bin", job.id);
+    std::string filepath = outDir + "/" + filename;
+
+    // Read binary file
+    std::ifstream is(filepath, std::ios::binary);
+    if (is) {
+      uint32_t count = 0;
+      is.read(reinterpret_cast<char*>(&count), sizeof(count));
+
+      if (is && count > 0) {
+        r.points.resize(count);
+        is.read(reinterpret_cast<char*>(r.points.data()), count * sizeof(Point));
+      }
+    }
+
     // move to Result
     resultQ.push(std::move(r));
   }
   // jobQ.stop() called -> threads are over
+}
+
+bool DataManager::getResult(Result& out) {
+  return resultQ.try_pop(out);
 }
 
 void DataManager::bboxExpand(const glm::vec3& p, glm::vec3& bb_min_, glm::vec3& bb_max_) {
@@ -221,16 +255,53 @@ void DataManager::bboxExpand(const glm::vec3& p, glm::vec3& bb_min_, glm::vec3& 
 }
 
 // Private helper: flush buffer to disk
-void DataManager::flush(int id, std::array<std::vector<PointOOC>, BLOCKS>& outBuf) {
+void DataManager::flush(int id, std::array<std::vector<Point>, NUM_BLOCKS>& outBuf) {
   auto &v = outBuf[id];
   if (v.empty())
     return;
   auto &os = cache.get(id);
-  os.write(reinterpret_cast<const char *>(v.data()), (std::streamsize)(v.size() * sizeof(PointOOC)));
+  os.write(reinterpret_cast<const char *>(v.data()), (std::streamsize)(v.size() * sizeof(Point)));
   v.clear();
 }
 
+// TODO: readBlockPoint for workerMain // take a look at tip1.org
+// bool readBlockPoint(const std::string& path, std::vector<Point>& out)
+// {
+//   std::ifstream is(path, std::ios::binary);
+//   if (!is) {
+//     std::cerr << "Failed to open: " << path << "\n";
+//     return false;
+//   }
 
+//   uint32_t count = 0;
+//   is.read(reinterpret_cast<char*>(&count), sizeof(count));
+//   if (!is) {
+//     std::cerr << "Failed to read count: " << path << "\n";
+//     return false;
+//   }
+
+//   // Optional: sanity check file size to catch layout mismatch/corruption
+//   const auto fsz = std::filesystem::file_size(path);
+//   const uint64_t expected = sizeof(uint32_t) + uint64_t(count) * sizeof(Point);
+//   if (fsz < expected) {
+//     std::cerr << "File too small or layout mismatch: " << path
+//               << " size=" << fsz << " expected>=" << expected << "\n";
+//     return false;
+//   }
+
+//   out.resize(count);
+//   is.read(reinterpret_cast<char*>(out.data()),
+//           static_cast<std::streamsize>(uint64_t(count) * sizeof(Point)));
+//   if (!is) {
+//     std::cerr << "Failed to read payload: " << path << "\n";
+//     return false;
+//   }
+//   return true;
+// }
+
+
+
+// Previous readPLY
 // /**
 //  * @brief reads .ply binary point cloud data
 //  *

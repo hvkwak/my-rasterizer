@@ -1,16 +1,20 @@
 #ifndef JOB_H
 #define JOB_H
 
+#include "Point.h"
+
 /**
  * @brief Jobs and Results for Worker Threads
  */
-struct Job {
-  int id; // block id for load
+struct Result {
+  uint32_t id; // block id
+  std::vector<Point> points;
 };
 
-struct Result {
-  int id; // block id for visualization
-  // std::vector<Point>
+struct Job {
+  uint32_t id; // block id
+  uint32_t count;
 };
+
 
 #endif // JOB_H
