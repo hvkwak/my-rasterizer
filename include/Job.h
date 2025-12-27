@@ -6,15 +6,15 @@
 /**
  * @brief Jobs and Results for Worker Threads
  */
-struct Result {
-  uint32_t id; // block id
-  std::vector<Point> points;
-};
 
 struct Job {
-  uint32_t id; // block id
+  uint32_t blockID; // block id
   uint32_t count;
 };
 
+struct Result {
+  uint32_t blockID; // block id
+  std::vector<Point> points;
+};
 
 #endif // JOB_H

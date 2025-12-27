@@ -5,8 +5,6 @@
 #include "Utils.h"
 #include "Shader.h"
 #include <iostream>
-#include <fstream>
-#include <filesystem>
 #include <cstdio>
 #include <cfloat>
 #include <limits>
@@ -36,10 +34,10 @@ Rasterizer::~Rasterizer(){
   glfwTerminate();
 }
 
-bool Rasterizer::init(const std::string& plyPath,
-                      const std::string& outDir,
-                      const std::string& shader_vert,
-                      const std::string& shader_frag,
+bool Rasterizer::init(const std::string& plyPath_,
+                      const std::string& outDir_,
+                      const std::string& shader_vert_,
+                      const std::string& shader_frag_,
                       bool isTest_,
                       bool isOOC_,
                       unsigned int window_width_,
@@ -48,6 +46,10 @@ bool Rasterizer::init(const std::string& plyPath,
                       float z_far_,
                       float rotateAngle_){
   // Set member variables
+  plyPath = plyPath_;
+  outDir = outDir_;
+  shader_vert = shader_vert_;
+  shader_frag = shader_frag_;
   isTest = isTest_;
   isOOC = isOOC_;
   window_width = window_width_;
@@ -55,14 +57,15 @@ bool Rasterizer::init(const std::string& plyPath,
   z_near = z_near_;
   z_far = z_far_;
   angularSpeed = glm::radians(rotateAngle_);
+  blocks.resize(NUM_BLOCKS);
 
   // setups
   if (!setupWindow()) return false;
-  if (!setupDataManager(plyPath, outDir)) return false;
+  if (!setupDataManager()) return false;
   if (!setupRasterizer()) return false;
   if (!setupCameraPose()) return false;
   if (!setupCallbacks()) return false;
-  if (!setupShader(shader_vert, shader_frag)) return false;
+  if (!setupShader()) return false;
 
   // setup static Buffer if not out-of-core mode
   // if (!isOOC) {
@@ -105,7 +108,7 @@ bool Rasterizer::setupCameraPose(){
   return true;
 }
 
-bool Rasterizer::setupShader(const std::string& shader_vert, const std::string& shader_frag){
+bool Rasterizer::setupShader(){
   // build and compile our shader program
   try {
     shader = new Shader(shader_vert.c_str(), shader_frag.c_str()); // keep it like this :(
@@ -178,14 +181,14 @@ bool Rasterizer::setupCallbacks(){
   return true;
 }
 
-bool Rasterizer::setupDataManager(const std::string& plyPath, const std::string& outDir){
+bool Rasterizer::setupDataManager(){
 
   // Reset bounding box to initial state
   bb_min = glm::vec3(std::numeric_limits<float>::max());
   bb_max = glm::vec3(std::numeric_limits<float>::lowest());
 
   // initialize Data Manager
-  if(!dataManager.init(plyPath, outDir, isOOC, bb_min, bb_max)){
+  if(!dataManager.init(plyPath, outDir, isOOC, bb_min, bb_max, blocks)){
     std::cerr << "Error: DataManager.init(). Exiting." << std::endl;
     return false;
   }
@@ -232,87 +235,6 @@ bool Rasterizer::setupBuffer(){
  * @return true, if setup is successful
  */
 bool Rasterizer::setupBufferBlocks(){
-
-  return true;
-}
-
-/**
- * @brief sets up gl Buffers in out-of-core mode by loading all 1000 block files.
- * @param outDir directory containing block_XXXX.bin files
- * @return true, if setup is successful
- */
-bool Rasterizer::setupBufferVer2(const std::string& outDir){
-  if (!isOOC) {
-    std::cerr << "Error: setupBufferVer2() should only be called in OOC mode." << std::endl;
-    return false;
-  }
-
-  points.clear();
-  points.reserve(10000000); // Reserve space for approx 10M points (adjust as needed)
-
-  // Read all 1000 block files
-  for (int id = 0; id < NUM_BLOCKS; ++id) {
-    char name[64];
-    std::snprintf(name, sizeof(name), "block_%04d.bin", id);
-    std::string filePath = (std::filesystem::path(outDir) / name).string();
-
-    std::ifstream infile(filePath, std::ios::binary);
-    if (!infile.is_open()) {
-      std::cerr << "Warning: Could not open block file: " << filePath << std::endl;
-      continue; // Skip missing blocks
-    }
-
-    // Read count
-    uint32_t count = 0;
-    infile.read(reinterpret_cast<char*>(&count), sizeof(uint32_t));
-    if (count == 0) {
-      infile.close();
-      continue; // Skip empty blocks
-    }
-
-    // Read all Point structs
-    std::vector<Point> blockPoints(count);
-    infile.read(reinterpret_cast<char*>(blockPoints.data()), count * sizeof(Point));
-
-    if ((uint32_t)infile.gcount() != count * sizeof(Point)) {
-      std::cerr << "Error: Failed to read complete data from: " << filePath << std::endl;
-      infile.close();
-      return false;
-    }
-    infile.close();
-
-    // Convert FilePoint -> Point
-    for (const auto& pooc : blockPoints) {
-      Point p;
-      p.pos = pooc.pos;
-      p.color = pooc.color;
-      points.push_back(p);
-    }
-  }
-
-  if (points.empty()) {
-    std::cerr << "Error: No points loaded from block files." << std::endl;
-    return false;
-  }
-
-  std::cout << "Loaded " << points.size() << " points from " << NUM_BLOCKS << " block files." << std::endl;
-
-  // Now upload to GPU
-  glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &VBO);
-
-  glBindVertexArray(VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(Point), points.data(), GL_STATIC_DRAW);
-
-  // Attribute 0: Position
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
-  glEnableVertexAttribArray(0);
-
-  // Attribute 1: Color
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3)));
-  glEnableVertexAttribArray(1);
-
   return true;
 }
 
@@ -335,6 +257,41 @@ void Rasterizer::updateFPS(){
     frames = 0;
   }
 }
+
+void Rasterizer::drawBlocks(){
+
+
+  // Results has points
+  // blocks has rests
+  for (int i = 0; i < NUM_BLOCKS; i++){
+    Result r;
+    dataManager.getResult(r);
+
+    glGenVertexArrays(1, &blocks[r.blockID].vao);
+    glGenBuffers(1, &blocks[r.blockID].vbo);
+
+    glBindVertexArray(blocks[r.blockID].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, blocks[r.blockID].vbo);
+    glBufferData(GL_ARRAY_BUFFER, r.points.size()*sizeof(Point), r.points.data(), GL_STREAM_DRAW);
+
+    // attrib setup once per VAO
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3))); // adjust field name
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(blocks[r.blockID].vao);
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(blocks[r.blockID].count));
+  }
+}
+
+void Rasterizer::loadBlocks(){
+  // load Blocks
+  for (unsigned int i = 0; i < NUM_BLOCKS; i++) {
+    dataManager.loadBlock(i, 1000); // TODO: Camera parameter should consider culling + count here
+  }
+};
 
 void Rasterizer::render(){
 
@@ -363,20 +320,25 @@ void Rasterizer::render(){
     if (isOOC) {
 
       // load of blocks out-of-core
-      loadBlocks(/*Camera Parameters hier drin*/);
+      loadBlocks(/*Camera Parameters hier drin*/); // TODO
 
+      // get results and draw
+      drawBlocks();
+
+    } else {
+      // Bind VAO containing our point cloud
+      glBindVertexArray(VAO);
+
+      // Draw N points
+      glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points.size()));
     }
 
-    // Bind VAO containing our point cloud
-    glBindVertexArray(VAO);
-
-    // Draw N points
-    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points.size()));
 
     // Swap buffers & poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
+  dataManager.quit();
 }
 
 /**

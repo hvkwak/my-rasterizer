@@ -5,6 +5,7 @@
 #include "Utils.h"
 #include "Cache.h"
 #include "Job.h"
+#include "Block.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -15,14 +16,16 @@
 // Constructor
 DataManager::DataManager() {}
 
-bool DataManager::init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_)
+bool DataManager::init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks)
 {
+
   if (!readPLY(plyPath, bb_min_, bb_max_)){
     std::cerr << "Error: Failed to do readPLY()" <<  std::endl;
     return false;
   }
 
   if (isOOC_){
+
     // Store outDir for later use
     outDir = outDir_;
 
@@ -31,14 +34,16 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir_, 
       std::cerr << "Error: Failed to initialize cache with directory: " << outDir << std::endl;
       return false;
     }
+
     // sets up workers for data load out-of-core
-    workers.resize(NUM_WORKERS);
+    workers.clear();
+    workers.reserve(NUM_WORKERS);
     for (int i = 0; i < NUM_WORKERS; i++){
       workers.emplace_back(workerMain, i, std::ref(jobQ), std::ref(resultQ), outDir);
     }
   }
 
-  if (createBlocks(plyPath, bb_min_, bb_max_)){
+  if (!createBlocks(plyPath, bb_min_, bb_max_, blocks)){
     std::cerr << "Error: Failed to do createBlocks()" << std::endl;
     return false;
   }
@@ -90,7 +95,7 @@ bool DataManager::readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::v
   // IMPORTANT: remember where binary vertex data begins
   dataStart = file.tellg();
 
-  // PART 1: compute global bbox
+  // compute global bbox
   std::vector<FilePoint> buf(BATCH);
 
   file.seekg(dataStart);
@@ -113,7 +118,7 @@ bool DataManager::readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::v
   return true;
 }
 
-bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_)
+bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks)
 {
   std::ifstream file(plyPath, std::ios::binary);
   if (!file.is_open()) {
@@ -126,8 +131,6 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
   glm::vec3 cell = extent / 10.0f;
 
   // write block files with LRU Cache
-  blocks.resize(NUM_BLOCKS);
-
   for (int id = 0; id < NUM_BLOCKS; ++id) {
     char name[64];
     std::snprintf(name, sizeof(name), "block_%04d.bin", id);
@@ -162,7 +165,7 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
       int iz = clampi((int)((z - bb_min_.z) / cell.z), 0, 9);
       int id = ix + 10 * iy + 100 * iz;
 
-      outBuf[id].push_back(Point{glm::vec3(x, y, z), glm::vec3(fp.r/255.0f, fp.g/255.0f, fp.g/255.0f)});
+      outBuf[id].push_back(Point{glm::vec3(x, y, z), glm::vec3(fp.r/255.0f, fp.g/255.0f, fp.b/255.0f)});
       blocks[id].count++;
 
       if (outBuf[id].size() >= FLUSH_POINTS)
@@ -186,21 +189,12 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
   return true;
 }
 
-void DataManager::loadBlocks(){
-
-  for (int i = 0; i < NUM_BLOCKS; i++){
-
-    // TODO: add AABB test
-
-    // enqueue to load if visible
-    if (blocks[i].isVisible){
-      Job job;
-      job.id = i;
-      job.count = blocks[i].count;
-      jobQ.push(std::move(job));
-    }
-
-  }
+void DataManager::loadBlock(unsigned int id, unsigned int count) {
+  // enqueue to load if visible
+  Job job;
+  job.blockID = id;
+  job.count = count; // TODO
+  jobQ.push(std::move(job));
 }
 
 void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ, const std::string& outDir)
@@ -210,23 +204,23 @@ void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& res
 
     // Create Results
     Result r;
-    r.id = job.id;
+    r.blockID = job.blockID;
 
     // Construct filepath: block_XXXX.bin
     char filename[64];
-    std::snprintf(filename, sizeof(filename), "block_%04d.bin", job.id);
+    std::snprintf(filename, sizeof(filename), "block_%04d.bin", job.blockID);
     std::string filepath = outDir + "/" + filename;
 
     // Read binary file
     std::ifstream is(filepath, std::ios::binary);
+
     if (is) {
-      uint32_t count = 0;
+      uint32_t count = 0; // TODO: subsampling
       is.read(reinterpret_cast<char*>(&count), sizeof(count));
 
-      if (is && count > 0) {
-        r.points.resize(count);
-        is.read(reinterpret_cast<char*>(r.points.data()), count * sizeof(Point));
-      }
+      count = job.count;
+      r.points.resize(count);
+      is.read(reinterpret_cast<char*>(r.points.data()), count * sizeof(Point));
     }
 
     // move to Result
@@ -235,8 +229,13 @@ void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& res
   // jobQ.stop() called -> threads are over
 }
 
-bool DataManager::getResult(Result& out) {
-  return resultQ.try_pop(out);
+void DataManager::getResult(Result& out) {
+  resultQ.pop(out);
+}
+
+void DataManager::quit(){
+  jobQ.stop();
+  for (auto& t : workers) t.join();
 }
 
 void DataManager::bboxExpand(const glm::vec3& p, glm::vec3& bb_min_, glm::vec3& bb_max_) {

@@ -6,14 +6,24 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Point.h"
+#include "Block.h"
 #include "DataManager.h"
 #include <vector>
-
 
 class Rasterizer
 {
 public:
-  bool init(const std::string& plyPath, const std::string& outDir, const std::string& shader_vert, const std::string& shader_frag, bool isTest_, bool isOOC_, unsigned int window_width_, unsigned int window_height_, float z_near_, float z_far_, float rotateAngle_);
+  bool init(const std::string& plyPath,
+            const std::string& outDir,
+            const std::string& shader_vert,
+            const std::string& shader_frag,
+            bool isTest_,
+            bool isOOC_,
+            unsigned int window_width_,
+            unsigned int window_height_,
+            float z_near_,
+            float z_far_,
+            float rotateAngle_);
   void render();
   Rasterizer();
   ~Rasterizer();
@@ -22,20 +32,23 @@ private:
 
   // setups
   bool setupWindow();
-  bool setupShader(const std::string& shader_vert, const std::string& shader_frag);
+  bool setupShader();
   bool setupRasterizer();
   bool setupCameraPose();
   bool setupCallbacks();
-  bool setupDataManager(const std::string& plyPathh, const std::string& outDir);
+  bool setupDataManager();
   bool setupBuffer();
-  bool setupBufferVer2(const std::string& outDir);
+  bool setupBufferVer2();
   bool setupBufferBlocks();
+
+  // initialization parameters
+  std::string plyPath;
+  std::string outDir;
+  std::string shader_vert;
+  std::string shader_frag;
 
   // Data Manager
   DataManager dataManager;
-
-  // Queue
-  Queue<Result> resultQ;
 
   // Bboxes of the loaded scene
   glm::vec3 bb_min;
@@ -64,8 +77,9 @@ private:
   // updateFPS
   void updateFPS();
 
-  // load Blocks
+  // load / draw Blocks
   void loadBlocks();
+  void drawBlocks();
 
   // settings
   unsigned int window_width;
@@ -88,19 +102,22 @@ private:
   float deltaTime = 0.0f; // time between current frame and last frame
   float lastFrame = 0.0f;
   float acc = 0.0f;
-  int frames = 0;
+  unsigned int frames = 0;
   float angularSpeed;// = glm::radians(10.0f); // 10.0 degrees/sec
 
   // VBO, VAO
   unsigned int VBO = 0, VAO = 0;
   bool glInitialized = false;
 
-  // points
+  // points for in-core
   std::vector<Point> points;
 
   // Modes Selection
   bool isTest;
   bool isOOC;
+
+  // blocks for OOC
+  std::vector<Block> blocks;
 };
 
 
