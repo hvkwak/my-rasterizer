@@ -2,18 +2,20 @@
 #define JOB_H
 
 #include "Point.h"
+#include <filesystem>
 
 /**
  * @brief Jobs and Results for Worker Threads
  */
 
 struct Job {
-  uint32_t blockID; // block id
-  uint32_t count;
+  int blockID; // block id
+  int count;
+  std::filesystem::path path;
 };
 
 struct Result {
-  uint32_t blockID; // block id
+  int blockID; // block id
   std::vector<Point> points;
 };
 

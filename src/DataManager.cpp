@@ -16,7 +16,12 @@
 // Constructor
 DataManager::DataManager() {}
 
-bool DataManager::init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks)
+bool DataManager::init(const std::filesystem::path& plyPath,
+                       const std::filesystem::path& outDir_,
+                       bool isOOC_,
+                       glm::vec3& bb_min_,
+                       glm::vec3& bb_max_,
+                       std::vector<Block>& blocks)
 {
 
   if (!readPLY(plyPath, bb_min_, bb_max_)){
@@ -25,7 +30,6 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir_, 
   }
 
   if (isOOC_){
-
     // Store outDir for later use
     outDir = outDir_;
 
@@ -35,18 +39,29 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir_, 
       return false;
     }
 
+    // Clean up old block files (rm ../data/*.bin)
+    if (std::filesystem::exists(outDir)) {
+      for (const auto& entry : std::filesystem::directory_iterator(outDir)) {
+        if (entry.path().extension() == ".bin") {
+          std::filesystem::remove(entry.path());
+        }
+      }
+      std::cout << "Cleaned up old block files in " << outDir << std::endl;
+    }
+
     // sets up workers for data load out-of-core
     workers.clear();
     workers.reserve(NUM_WORKERS);
     for (int i = 0; i < NUM_WORKERS; i++){
-      workers.emplace_back(workerMain, i, std::ref(jobQ), std::ref(resultQ), outDir);
+      workers.emplace_back(workerMain, i, std::ref(jobQ), std::ref(resultQ));
+    }
+
+    if (!createBlocks(plyPath, bb_min_, bb_max_, blocks)) {
+      std::cerr << "Error: Failed to do createBlocks()" << std::endl;
+      return false;
     }
   }
 
-  if (!createBlocks(plyPath, bb_min_, bb_max_, blocks)){
-    std::cerr << "Error: Failed to do createBlocks()" << std::endl;
-    return false;
-  }
   
   return true;
 }
@@ -55,7 +70,7 @@ bool DataManager::init(const std::string & plyPath, const std::string &outDir_, 
  * @brief reads a .ply file and compute a global bbox
  *
  */
-bool DataManager::readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_)
+bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_)
 {
   std::ifstream file(plyPath, std::ios::binary);
   if (!file.is_open()) {
@@ -118,7 +133,7 @@ bool DataManager::readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::v
   return true;
 }
 
-bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks)
+bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks)
 {
   std::ifstream file(plyPath, std::ios::binary);
   if (!file.is_open()) {
@@ -132,9 +147,7 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
 
   // write block files with LRU Cache
   for (int id = 0; id < NUM_BLOCKS; ++id) {
-    char name[64];
-    std::snprintf(name, sizeof(name), "block_%04d.bin", id);
-    auto &os = cache.get(id);
+    cache.get(id, pathFor(id));
   }
 
   std::vector<FilePoint> buf(BATCH);
@@ -178,26 +191,27 @@ bool DataManager::createBlocks(const std::string& plyPath, const glm::vec3& bb_m
   for (int id = 0; id < NUM_BLOCKS; ++id)
     flush(id, outBuf);
 
-  // patch counts
-  for (int id = 0; id < NUM_BLOCKS; ++id) {
-    auto &os = cache.get(id);
-    os.seekp(0, std::ios::beg);
-    os.write(reinterpret_cast<const char *>(&blocks[id].count), sizeof(uint32_t));
-  }
   cache.close_all();
 
   return true;
 }
 
-void DataManager::loadBlock(unsigned int id, unsigned int count) {
+void DataManager::loadBlock(int id, int count) {
   // enqueue to load if visible
   Job job;
   job.blockID = id;
-  job.count = count; // TODO
+  job.count = count;
+  job.path = pathFor(id);
   jobQ.push(std::move(job));
 }
 
-void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ, const std::string& outDir)
+std::filesystem::path DataManager::pathFor(int id) {
+  char name[64];
+  std::snprintf(name, sizeof(name), "block_%04d.bin", id);
+  return outDir / name;
+}
+
+void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resultQ)
 {
   Job job;
   while (jobQ.pop(job)) {
@@ -206,22 +220,11 @@ void DataManager::workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& res
     Result r;
     r.blockID = job.blockID;
 
-    // Construct filepath: block_XXXX.bin
-    char filename[64];
-    std::snprintf(filename, sizeof(filename), "block_%04d.bin", job.blockID);
-    std::string filepath = outDir + "/" + filename;
-
     // Read binary file
-    std::ifstream is(filepath, std::ios::binary);
-
-    if (is) {
-      uint32_t count = 0; // TODO: subsampling
-      is.read(reinterpret_cast<char*>(&count), sizeof(count));
-
-      count = job.count;
-      r.points.resize(count);
-      is.read(reinterpret_cast<char*>(r.points.data()), count * sizeof(Point));
-    }
+    std::ifstream is(job.path, std::ios::binary);
+    r.points.resize(job.count);
+    is.read(reinterpret_cast<char*>(r.points.data()), job.count * sizeof(Point));
+    // std::cout << "workerID/count: " << workerID << " / " << job.count << "\n";
 
     // move to Result
     resultQ.push(std::move(r));
@@ -258,47 +261,10 @@ void DataManager::flush(int id, std::array<std::vector<Point>, NUM_BLOCKS>& outB
   auto &v = outBuf[id];
   if (v.empty())
     return;
-  auto &os = cache.get(id);
+  auto &os = cache.get(id, pathFor(id));
   os.write(reinterpret_cast<const char *>(v.data()), (std::streamsize)(v.size() * sizeof(Point)));
   v.clear();
 }
-
-// TODO: readBlockPoint for workerMain // take a look at tip1.org
-// bool readBlockPoint(const std::string& path, std::vector<Point>& out)
-// {
-//   std::ifstream is(path, std::ios::binary);
-//   if (!is) {
-//     std::cerr << "Failed to open: " << path << "\n";
-//     return false;
-//   }
-
-//   uint32_t count = 0;
-//   is.read(reinterpret_cast<char*>(&count), sizeof(count));
-//   if (!is) {
-//     std::cerr << "Failed to read count: " << path << "\n";
-//     return false;
-//   }
-
-//   // Optional: sanity check file size to catch layout mismatch/corruption
-//   const auto fsz = std::filesystem::file_size(path);
-//   const uint64_t expected = sizeof(uint32_t) + uint64_t(count) * sizeof(Point);
-//   if (fsz < expected) {
-//     std::cerr << "File too small or layout mismatch: " << path
-//               << " size=" << fsz << " expected>=" << expected << "\n";
-//     return false;
-//   }
-
-//   out.resize(count);
-//   is.read(reinterpret_cast<char*>(out.data()),
-//           static_cast<std::streamsize>(uint64_t(count) * sizeof(Point)));
-//   if (!is) {
-//     std::cerr << "Failed to read payload: " << path << "\n";
-//     return false;
-//   }
-//   return true;
-// }
-
-
 
 // Previous readPLY
 // /**

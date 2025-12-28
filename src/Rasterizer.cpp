@@ -34,10 +34,10 @@ Rasterizer::~Rasterizer(){
   glfwTerminate();
 }
 
-bool Rasterizer::init(const std::string& plyPath_,
-                      const std::string& outDir_,
-                      const std::string& shader_vert_,
-                      const std::string& shader_frag_,
+bool Rasterizer::init(const std::filesystem::path& plyPath_,
+                      const std::filesystem::path& outDir_,
+                      const std::filesystem::path& shader_vert_,
+                      const std::filesystem::path& shader_frag_,
                       bool isTest_,
                       bool isOOC_,
                       unsigned int window_width_,
@@ -67,10 +67,12 @@ bool Rasterizer::init(const std::string& plyPath_,
   if (!setupCallbacks()) return false;
   if (!setupShader()) return false;
 
-  // setup static Buffer if not out-of-core mode
-  // if (!isOOC) {
-  //   if (!setupBuffer()) return false;
-  // }
+  // setup Buffers
+  if (isOOC) {
+    if (!setupBufferPerBlock()) return false;
+  } else {
+    if (!setupBuffer()) return false;
+  }
   return true;
 }
 
@@ -86,7 +88,7 @@ bool Rasterizer::setupRasterizer(){
   glInitialized = true;
   glViewport(0, 0, window_width, window_height);
   glEnable(GL_DEPTH_TEST);
-  glPointSize(1.0f);
+  glPointSize(1.5f);
   return true;
 }
 
@@ -206,12 +208,16 @@ bool Rasterizer::setupDataManager(){
   return true;
 }
 
+
+bool Rasterizer::setupBufferWrapper(){
+  return isOOC ? setupBufferPerBlock() : setupBuffer();
+}
+
 /**
  * @brief sets up gl Buffers in non out-of-core mode.
  * @return true, if setup is successful
  */
 bool Rasterizer::setupBuffer(){
-
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
 
@@ -234,62 +240,63 @@ bool Rasterizer::setupBuffer(){
  * @brief sets up gl Buffers in out-of-core mode.
  * @return true, if setup is successful
  */
-bool Rasterizer::setupBufferBlocks(){
-  return true;
-}
+bool Rasterizer::setupBufferPerBlock(){
 
-void Rasterizer::updateFPS(){
-  float currentFrame = static_cast<float>(glfwGetTime());
-  deltaTime = currentFrame - lastFrame;
-  lastFrame = currentFrame;
+  for (int id = 0; id < NUM_BLOCKS; id++) {
+    glGenVertexArrays(1, &blocks[id].vao);
+    glGenBuffers(1, &blocks[id].vbo);
 
-  acc += deltaTime;
-  frames++;
-
-  if (acc > 1.0){
-    float fps = frames / acc;
-
-    char buf[128];
-    std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f", fps);
-    glfwSetWindowTitle(window, buf);
-
-    acc = 0.0f;
-    frames = 0;
-  }
-}
-
-void Rasterizer::drawBlocks(){
-
-
-  // Results has points
-  // blocks has rests
-  for (int i = 0; i < NUM_BLOCKS; i++){
-    Result r;
-    dataManager.getResult(r);
-
-    glGenVertexArrays(1, &blocks[r.blockID].vao);
-    glGenBuffers(1, &blocks[r.blockID].vbo);
-
-    glBindVertexArray(blocks[r.blockID].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, blocks[r.blockID].vbo);
-    glBufferData(GL_ARRAY_BUFFER, r.points.size()*sizeof(Point), r.points.data(), GL_STREAM_DRAW);
+    glBindVertexArray(blocks[id].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, blocks[id].vbo);
 
     // attrib setup once per VAO
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
     glEnableVertexAttribArray(0);
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3))); // adjust field name
     glEnableVertexAttribArray(1);
-
-    glBindVertexArray(blocks[r.blockID].vao);
-    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(blocks[r.blockID].count));
   }
+  return true;
 }
+
+void Rasterizer::drawBlocks()
+{
+  constexpr size_t MAX_UPLOAD = 1000; // TODO: keep this for prototyping.
+
+  for (int i = 0; i < NUM_BLOCKS; ++i) {
+    Result r;
+    dataManager.getResult(r);
+
+    // blockID check
+    if (r.blockID < 0 || r.blockID >= NUM_BLOCKS) {
+      continue;
+    }
+
+    // uploadCount update
+    const size_t uploadCount = std::min(r.points.size(), MAX_UPLOAD);
+
+    if (uploadCount == 0) {
+      continue;
+    }
+
+    // bind current block VAO, VBO
+    glBindVertexArray(blocks[r.blockID].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, blocks[r.blockID].vbo);
+
+    // takes first "uploadCount" points
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(uploadCount * sizeof(Point)), r.points.data(), GL_STREAM_DRAW);
+
+    // blocks[r.blockID].count = (int)uploadCount;
+    glDrawArrays(GL_POINTS, 0, (GLsizei)uploadCount);
+  }
+  glBindVertexArray(0);
+}
+
 
 void Rasterizer::loadBlocks(){
   // load Blocks
-  for (unsigned int i = 0; i < NUM_BLOCKS; i++) {
-    dataManager.loadBlock(i, 1000); // TODO: Camera parameter should consider culling + count here
+  for (int i = 0; i < NUM_BLOCKS; i++) {
+    dataManager.loadBlock(i, blocks[i].count); // TODO: Camera parameter should consider culling + count here
   }
 };
 
@@ -333,13 +340,34 @@ void Rasterizer::render(){
       glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points.size()));
     }
 
-
     // Swap buffers & poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
   dataManager.quit();
 }
+
+
+void Rasterizer::updateFPS(){
+  float currentFrame = static_cast<float>(glfwGetTime());
+  deltaTime = currentFrame - lastFrame;
+  lastFrame = currentFrame;
+
+  acc += deltaTime;
+  frames++;
+
+  if (acc > 1.0){
+    float fps = frames / acc;
+
+    char buf[128];
+    std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f", fps);
+    glfwSetWindowTitle(window, buf);
+
+    acc = 0.0f;
+    frames = 0;
+  }
+}
+
 
 /**
  * @brief query GLFW whether relevant keys are pressed/released this frame and react accordingly

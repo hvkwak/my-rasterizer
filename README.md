@@ -1,12 +1,20 @@
 # My Rasterizer
-A 3D point cloud rasterizer built with C++ and OpenGL. 
+A 3D point cloud rasterizer built with C++ and OpenGL.
 
 ## News
-- [2025-12-22] Implemented `DataManager` and its LRU Cache class for `out-of-core` management of point cloud by keeping them in binary files.
-- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control. It reaches 15 FPS on the scene `Church` (by keeping all 67M Points `in-core`) with CPU Ryzen 7 PRO 5850U (Radeon Vega iGPU) when tested with a 10 degrees/sec orbit camera pose. 
+- (NEXT) Implemented prioritized multithreaded data streaming with a 64-slot resident cache and background prefetch of lower-priority sub-blocks.
+- (NEXT) Implemented culling.
+- **[2025-12-28] Implemented out-of-core rendering for massive point clouds exceeding available RAM.**
+  - Implemented multithreaded binary data loading of 10×10×10 partitioned spatial blocks.
+  - The main thread synchronizes on loading blocks to prioritize stable rendering.
+  - Implemented LRU cache to reuse files during block partitioning, reducing file I/O overhead by minimizing repeated file open/close operations.
+- **[2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.**
+  - Achieves 15 FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbit camera.
 
 ## Features
 - Real-time 3D point cloud rendering from PLY file format
+- **Out-of-core rendering** for massive datasets exceeding available RAM
+- Multi-threaded (async) data streaming with spatial partitioning
 - Custom vertex and fragment shader support
 - Interactive camera controls (orbit camera modes for testing)
 - OpenGL-based rendering pipeline
@@ -24,7 +32,7 @@ sudo apt install cmake build-essential libgl1-mesa-dev libglfw3-dev libglm-dev
 ```
 
 ## Datasets
-Compatible with 3D point cloud datasets in `.ply` format. Datasets should be stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
+This Rasterizer is compatible with 3D point cloud datasets in `.ply` format. Datasets should be stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
 
 ## Build
 1. Clone the repository:
@@ -60,14 +68,19 @@ You can specify custom files via command line arguments:
 
 **Available Options:**
 - `--test`: Run in test mode (orbit camera pose)
+- `--ooc`: Enable out-of-core rendering mode (for large datasets)
 - `*.ply`: Specify a PLY model file
 - `*.vert`: Specify a custom vertex shader
 - `*.frag`: Specify a custom fragment shader
 
-**Example:**
+**Examples:**
 
 ```bash
+# In-core rendering (default)
 ./main ../data/Barn.ply ../src/shader/shader.vert ../src/shader/shader.frag
+
+# Out-of-core rendering for large datasets
+./main --ooc ../data/Church.ply
 ```
 
 ### Camera Controls

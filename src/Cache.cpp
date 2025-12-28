@@ -9,7 +9,7 @@ bool Cache::init(std::filesystem::path dir, size_t cap){
   return true;
 }
 
-std::ofstream& Cache::get(int id) {
+std::ofstream& Cache::get(int id, const std::filesystem::path& p) {
   auto it = m.find(id); // returns an iterator pointing to the soughth after element.
   if (it != m.end()) {
     touch(id);
@@ -21,22 +21,13 @@ std::ofstream& Cache::get(int id) {
   }
 
   // create a new file if it not exists
-  std::filesystem::path p = pathFor(id);
   if (!std::filesystem::exists(p)) {
     std::ofstream tmp(p, std::ios::binary | std::ios::out);
-    uint32_t placeholder = 0;
-    tmp.write(reinterpret_cast<const char *>(&placeholder), sizeof(placeholder));
   }
 
   // open it in append mode
   CachedObj co;
   co.os.open(p, std::ios::binary | std::ios::out | std::ios::app);
-  // Only create if it doesn't exist
-  if (!std::filesystem::exists(p)) {
-    co.os.open(pathFor(id), std::ios::binary | std::ios::out);
-    uint32_t placeholder = 0;
-    co.os.write(reinterpret_cast<const char *>(&placeholder), sizeof(placeholder));
-  }
 
   lru.push_front(id);
   co.lru_it = lru.begin();
@@ -49,12 +40,6 @@ void Cache::close_all() {
     co.os.close();
   m.clear();
   lru.clear();
-}
-
-std::string Cache::pathFor(int id) const {
-  char name[64];
-  std::snprintf(name, sizeof(name), "block_%04d.bin", id);
-  return (outDir / name).string();
 }
 
 void Cache::touch(int id) {

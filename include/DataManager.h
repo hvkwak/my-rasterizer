@@ -2,9 +2,9 @@
 #define DATAMANAGER_H
 
 #include <thread>
-#include <string>
 #include <vector>
 #include <array>
+#include <filesystem>
 #include "Job.h"
 #include "Queue.h"
 #include "Block.h"
@@ -24,10 +24,10 @@ public:
   DataManager();
 
   // sets up DataManager/Cache
-  bool init(const std::string & plyPath, const std::string &outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks);
+  bool init(const std::filesystem::path& plyPath, const std::filesystem::path& outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks);
 
   // load Block
-  void loadBlock(unsigned int id, unsigned int count);
+  void loadBlock(int id, int count);
 
   // quit
   void quit();
@@ -52,16 +52,17 @@ private:
   Queue<Job> jobQ;
   Queue<Result> resultQ;
   std::vector<std::thread> workers;
-  std::string outDir;
+  std::filesystem::path outDir;
 
   // load .ply and create blocks
-  bool readPLY(const std::string& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_);
-  bool createBlocks(const std::string& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks);
+  bool readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_);
+  bool createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks);
+  std::filesystem::path pathFor(int id);
 
   void flush(int id, std::array<std::vector<Point>, NUM_BLOCKS> &outBuf);
   void bboxExpand(const glm::vec3 &p, glm::vec3 &bb_min_, glm::vec3 &bb_max);
 
-  static void workerMain(int worker_id, Queue<Job>& jobQ, Queue<Result>& resultQ, const std::string& outDir);
+  static void workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resultQ);
 };
 
 #endif // DATAMANAGER_H

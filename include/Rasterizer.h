@@ -9,14 +9,15 @@
 #include "Block.h"
 #include "DataManager.h"
 #include <vector>
+#include <filesystem>
 
 class Rasterizer
 {
 public:
-  bool init(const std::string& plyPath,
-            const std::string& outDir,
-            const std::string& shader_vert,
-            const std::string& shader_frag,
+  bool init(const std::filesystem::path& plyPath,
+            const std::filesystem::path& outDir,
+            const std::filesystem::path& shader_vert,
+            const std::filesystem::path& shader_frag,
             bool isTest_,
             bool isOOC_,
             unsigned int window_width_,
@@ -37,15 +38,15 @@ private:
   bool setupCameraPose();
   bool setupCallbacks();
   bool setupDataManager();
+  bool setupBufferWrapper();
   bool setupBuffer();
-  bool setupBufferVer2();
-  bool setupBufferBlocks();
+  bool setupBufferPerBlock();
 
   // initialization parameters
-  std::string plyPath;
-  std::string outDir;
-  std::string shader_vert;
-  std::string shader_frag;
+  std::filesystem::path plyPath;
+  std::filesystem::path outDir;
+  std::filesystem::path shader_vert;
+  std::filesystem::path shader_frag;
 
   // Data Manager
   DataManager dataManager;

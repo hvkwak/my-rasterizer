@@ -17,11 +17,10 @@ class Cache{
 public:
     Cache();
     bool init(std::filesystem::path dir, size_t cap);
-    std::ofstream& get(int id);
+    std::ofstream& get(int id, const std::filesystem::path& p);
     void close_all();
 
 private:
-    std::string pathFor(int id) const;
     void touch(int id);
     void evict_one();
 
