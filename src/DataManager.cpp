@@ -143,8 +143,22 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
 
   // block size
   glm::vec3 extent = bb_max_ - bb_min_;
-  glm::vec3 cell = extent / 10.0f;
+  glm::vec3 cell = extent / (float)GRID;
 
+  // block bbox update
+  for (int z = 0; z < GRID; ++z) {
+    for (int y = 0; y < GRID; ++y) {
+      for (int x = 0; x < GRID; ++x) {
+        int id = x + GRID * y + GRID * GRID * z;
+
+        glm::vec3 mn = bb_min_ + glm::vec3(x, y, z) * cell;
+        glm::vec3 mx = bb_min_ + glm::vec3(x + 1, y + 1, z + 1) * cell;
+
+        blocks[id].bb_min = mn;
+        blocks[id].bb_max = mx;
+      }
+    }
+  }
   // write block files with LRU Cache
   for (int id = 0; id < NUM_BLOCKS; ++id) {
     cache.get(id, pathFor(id));
@@ -224,7 +238,6 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
     std::ifstream is(job.path, std::ios::binary);
     r.points.resize(job.count);
     is.read(reinterpret_cast<char*>(r.points.data()), job.count * sizeof(Point));
-    // std::cout << "workerID/count: " << workerID << " / " << job.count << "\n";
 
     // move to Result
     resultQ.push(std::move(r));

@@ -6,6 +6,7 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Point.h"
+#include "Plane.h"
 #include "Block.h"
 #include "DataManager.h"
 #include <vector>
@@ -41,6 +42,34 @@ private:
   bool setupBufferWrapper();
   bool setupBuffer();
   bool setupBufferPerBlock();
+  bool setupCulling();
+
+  // key pressings
+  void processInput();
+
+  // input handlers
+  void handleMouseMove(GLFWwindow* window, double xposIn, double yposIn);
+  void handleWindowFocus(GLFWwindow* window, int focused);
+
+  // callbacks
+  static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+  static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+  static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
+  static void window_focus_callback(GLFWwindow* window, int focused);
+
+  // updateFPS
+  void updateFPS();
+
+  // load, draw, cull Blocks
+  void loadBlocks();
+  void drawBlocks();
+  void cullBlocks();
+  int loadedBlocks = 0;
+
+  // Culling
+  void aabbIntersectsFrustum(Block & block);
+  void buildFrustumPlanes();
+  std::array<Plane, 6> planes;
 
   // initialization parameters
   std::filesystem::path plyPath;
@@ -62,26 +91,6 @@ private:
   // Window
   GLFWwindow *window = nullptr;
 
-  // key pressings
-  void processInput();
-
-  // input handlers
-  void handleMouseMove(GLFWwindow* window, double xposIn, double yposIn);
-  void handleWindowFocus(GLFWwindow* window, int focused);
-
-  // callbacks
-  static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-  static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-  static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
-  static void window_focus_callback(GLFWwindow* window, int focused);
-
-  // updateFPS
-  void updateFPS();
-
-  // load / draw Blocks
-  void loadBlocks();
-  void drawBlocks();
-
   // settings
   unsigned int window_width;
   unsigned int window_height;
@@ -95,6 +104,11 @@ private:
   bool firstMouse = true;
   bool hasFocus = true;
 
+  // Transformations
+  glm::mat4 model;
+  glm::mat4 proj;
+  glm::mat4 view;
+
   // z_near, z_far
   float z_near;
   float z_far;
@@ -106,7 +120,7 @@ private:
   unsigned int frames = 0;
   float angularSpeed;// = glm::radians(10.0f); // 10.0 degrees/sec
 
-  // VBO, VAO
+  // VBO, VAO for in-core rendering?
   unsigned int VBO = 0, VAO = 0;
   bool glInitialized = false;
 

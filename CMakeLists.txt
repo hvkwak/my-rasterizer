@@ -30,6 +30,7 @@ add_executable(${PROJECT_NAME}
     src/Rasterizer.cpp
     src/Camera.cpp
     src/Cache.cpp
+    src/Plane.cpp
 )
 
 # ---- Include directories ----

@@ -66,6 +66,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   if (!setupCameraPose()) return false;
   if (!setupCallbacks()) return false;
   if (!setupShader()) return false;
+  if (!setupCulling()) return false;
 
   // setup Buffers
   if (isOOC) {
@@ -88,7 +89,7 @@ bool Rasterizer::setupRasterizer(){
   glInitialized = true;
   glViewport(0, 0, window_width, window_height);
   glEnable(GL_DEPTH_TEST);
-  glPointSize(1.5f);
+  glPointSize(1.0f);
   return true;
 }
 
@@ -128,12 +129,18 @@ bool Rasterizer::setupShader(){
   }
 
   shader->use();
-  glm::mat4 model = glm::mat4(1.0f); // identity for now
-  glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, z_near, z_far);
+  model = glm::mat4(1.0f); // identity for now
+  proj = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, z_near, z_far);
   shader->setMat4("Model", model);
   shader->setMat4("Proj", proj);
   return true;
 }
+
+bool Rasterizer::setupCulling(){
+  buildFrustumPlanes();
+  return true;
+}
+
 
 bool Rasterizer::setupWindow(){
   // glfw: initialize and configure
@@ -259,21 +266,101 @@ bool Rasterizer::setupBufferPerBlock(){
   return true;
 }
 
+// Extract planes from OpenGL-style clip space VP
+void Rasterizer::buildFrustumPlanes() {
+
+  // GLM matrices are column-major. Transpose to treat m[i] as row i.
+  glm::mat4 m = glm::transpose(proj);
+
+  // Plane updates: n and d
+  planes[0] = normalizePlane(m[3] + m[0]); // Left
+  planes[1] = normalizePlane(m[3] - m[0]); // Right
+  planes[2] = normalizePlane(m[3] + m[1]); // Bottom
+  planes[3] = normalizePlane(m[3] - m[1]); // Top
+  planes[4] = normalizePlane(m[3] + m[2]); // Near
+  planes[5] = normalizePlane(m[3] - m[2]); // Far
+}
+
+void Rasterizer::cullBlocks(){
+  for (int i = 0; i < NUM_BLOCKS; i++){
+    aabbIntersectsFrustum(blocks[i]);
+  }
+}
+
+// Returns true if AABB intersects or is inside the frustum
+void Rasterizer::aabbIntersectsFrustum(Block & block) {
+
+  if (block.count == 0) return;
+  block.isVisible = true;
+
+  // Generate all 8 corners of the AABB in world space
+  glm::vec3 corners[8] = {
+      glm::vec3(block.bb_min.x, block.bb_min.y, block.bb_min.z),
+      glm::vec3(block.bb_max.x, block.bb_min.y, block.bb_min.z),
+      glm::vec3(block.bb_min.x, block.bb_max.y, block.bb_min.z),
+      glm::vec3(block.bb_max.x, block.bb_max.y, block.bb_min.z),
+      glm::vec3(block.bb_min.x, block.bb_min.y, block.bb_max.z),
+      glm::vec3(block.bb_max.x, block.bb_min.y, block.bb_max.z),
+      glm::vec3(block.bb_min.x, block.bb_max.y, block.bb_max.z),
+      glm::vec3(block.bb_max.x, block.bb_max.y, block.bb_max.z)
+  };
+
+  // Transform all corners to view space and compute bounds
+  glm::vec3 bb_min(FLT_MAX);
+  glm::vec3 bb_max(-FLT_MAX);
+  for (int i = 0; i < 8; i++) {
+    glm::vec3 p = view * glm::vec4(corners[i], 1.0f);
+    bb_min = glm::min(bb_min, p);
+    bb_max = glm::max(bb_max, p);
+  }
+
+  for (const Plane &plane : planes) {
+    // Positive vertex: the AABB corner that maximizes dot(n, x)
+    glm::vec3 p;
+    p.x = (plane.n.x >= 0.0f) ? bb_max.x : bb_min.x;
+    p.y = (plane.n.y >= 0.0f) ? bb_max.y : bb_min.y;
+    p.z = (plane.n.z >= 0.0f) ? bb_max.z : bb_min.z;
+
+    // If even the best-case vertex is outside, the whole box is outside
+    if (glm::dot(plane.n, p) + plane.d < 0.0f) {
+      block.isVisible = false;
+      return;
+    }
+  }
+
+  // // transform it to view space
+  // glm::vec3 p1 = view*glm::vec4(block.bb_min, 1.0f);
+  // glm::vec3 p2 = view*glm::vec4(block.bb_max, 1.0f);
+  // glm::vec3 bb_min = glm::min(p1, p2);
+  // glm::vec3 bb_max = glm::max(p1, p2);
+
+  // for (const Plane &pl : planes) {
+  //   // Positive vertex: the AABB corner that maximizes dot(n, x)
+  //   glm::vec3 p;
+  //   p.x = (pl.n.x >= 0.0f) ? bb_max.x : bb_min.x;
+  //   p.y = (pl.n.y >= 0.0f) ? bb_max.y : bb_min.y;
+  //   p.z = (pl.n.z >= 0.0f) ? bb_max.z : bb_min.z;
+
+  //   // If even the best-case vertex is outside, the whole box is outside
+  //   if (glm::dot(pl.n, p) + pl.d < 0.0f){
+  //     block.isVisible = false;
+  //     return;
+  //   }
+  // }
+}
+
 void Rasterizer::drawBlocks()
 {
-  constexpr size_t MAX_UPLOAD = 1000; // TODO: keep this for prototyping.
+  constexpr size_t MAX_UPLOAD = 1000; // TODO: delete this after prototyping.
 
-  for (int i = 0; i < NUM_BLOCKS; ++i) {
+  for (int i = 0; i < loadedBlocks; ++i) {
+
     Result r;
     dataManager.getResult(r);
 
-    // blockID check
-    if (r.blockID < 0 || r.blockID >= NUM_BLOCKS) {
-      continue;
-    }
-
     // uploadCount update
-    const size_t uploadCount = std::min(r.points.size(), MAX_UPLOAD);
+    // const size_t uploadCount = std::min(r.points.size(), MAX_UPLOAD);
+    const size_t uploadCount = blocks[r.blockID].count;
 
     if (uploadCount == 0) {
       continue;
@@ -288,15 +375,22 @@ void Rasterizer::drawBlocks()
 
     // blocks[r.blockID].count = (int)uploadCount;
     glDrawArrays(GL_POINTS, 0, (GLsizei)uploadCount);
+
   }
+  // std::cout << "loadedBlocks this frame: " << loadedBlocks << "\n";
   glBindVertexArray(0);
 }
 
 
 void Rasterizer::loadBlocks(){
   // load Blocks
+  loadedBlocks = 0;
   for (int i = 0; i < NUM_BLOCKS; i++) {
-    dataManager.loadBlock(i, blocks[i].count); // TODO: Camera parameter should consider culling + count here
+    Block & block = blocks[i];
+    if (block.isVisible && block.count > 0){
+      dataManager.loadBlock(i, block.count); // TODO: Camera parameter should consider culling + count here
+      loadedBlocks++;
+    }
   }
 };
 
@@ -321,18 +415,22 @@ void Rasterizer::render(){
 
     shader->use();
 
-    glm::mat4 view = camera.GetViewMatrix();
+    view = camera.GetViewMatrix();
     shader->setMat4("View", view);
 
     if (isOOC) {
 
+      // Culling
+      cullBlocks();
+
       // load of blocks out-of-core
-      loadBlocks(/*Camera Parameters hier drin*/); // TODO
+      loadBlocks();
 
       // get results and draw
       drawBlocks();
 
     } else {
+      // TODO: in-core rendering should be available
       // Bind VAO containing our point cloud
       glBindVertexArray(VAO);
 
