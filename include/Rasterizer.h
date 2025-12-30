@@ -8,6 +8,7 @@
 #include "Point.h"
 #include "Plane.h"
 #include "Block.h"
+#include "Slot.h"
 #include "DataManager.h"
 #include <vector>
 #include <filesystem>
@@ -21,6 +22,8 @@ public:
             const std::filesystem::path& shader_frag,
             bool isTest_,
             bool isOOC_,
+            bool isSlot_,
+            bool isCache_,
             unsigned int window_width_,
             unsigned int window_height_,
             float z_near_,
@@ -40,9 +43,10 @@ private:
   bool setupCallbacks();
   bool setupDataManager();
   bool setupBufferWrapper();
-  bool setupBuffer();
+  // bool setupBuffer();
   bool setupBufferPerBlock();
   bool setupCulling();
+  bool setupSlots();
 
   // key pressings
   void processInput();
@@ -60,10 +64,14 @@ private:
   // updateFPS
   void updateFPS();
 
+  // slot functions
+  void initSlots(std::array<Slot, NUM_SLOTS>& slots);
+
   // load, draw, cull Blocks
-  void loadBlocks();
-  void drawBlocks();
   void cullBlocks();
+  void drawBlocks();
+  void loadBlocksOOC();
+  void drawBlocksOOC();
   int loadedBlocks = 0;
 
   // Culling
@@ -124,15 +132,14 @@ private:
   unsigned int VBO = 0, VAO = 0;
   bool glInitialized = false;
 
-  // points for in-core
-  std::vector<Point> points;
-
   // Modes Selection
   bool isTest;
   bool isOOC;
 
-  // blocks for OOC
+  // blocks / slots
   std::vector<Block> blocks;
+  std::vector<Slot> slots;
+  std::vector<Slot> sub_slots;
 };
 
 

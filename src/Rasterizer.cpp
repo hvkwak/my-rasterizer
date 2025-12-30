@@ -40,6 +40,8 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
                       const std::filesystem::path& shader_frag_,
                       bool isTest_,
                       bool isOOC_,
+                      bool isSlot_,
+                      bool isCache_,
                       unsigned int window_width_,
                       unsigned int window_height_,
                       float z_near_,
@@ -58,6 +60,8 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   z_far = z_far_;
   angularSpeed = glm::radians(rotateAngle_);
   blocks.resize(NUM_BLOCKS);
+  slots.resize(NUM_SLOTS);
+  sub_slots.resize(NUM_SUB_SLOTS);
 
   // setups
   if (!setupWindow()) return false;
@@ -67,13 +71,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   if (!setupCallbacks()) return false;
   if (!setupShader()) return false;
   if (!setupCulling()) return false;
-
-  // setup Buffers
-  if (isOOC) {
-    if (!setupBufferPerBlock()) return false;
-  } else {
-    if (!setupBuffer()) return false;
-  }
+  if (!setupBufferWrapper()) return false;
   return true;
 }
 
@@ -217,31 +215,32 @@ bool Rasterizer::setupDataManager(){
 
 
 bool Rasterizer::setupBufferWrapper(){
-  return isOOC ? setupBufferPerBlock() : setupBuffer();
+  // TODO: in-core mode implementieren!
+  return isOOC ? setupSlots() : setupBufferPerBlock();
 }
 
-/**
- * @brief sets up gl Buffers in non out-of-core mode.
- * @return true, if setup is successful
- */
-bool Rasterizer::setupBuffer(){
-  glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &VBO);
+// /**
+//  * @brief sets up gl Buffers in non out-of-core mode.
+//  * @return true, if setup is successful
+//  */
+// bool Rasterizer::setupBuffer(){
+//   glGenVertexArrays(1, &VAO);
+//   glGenBuffers(1, &VBO);
 
-  glBindVertexArray(VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, points.size()*sizeof(Point), points.data(), GL_STATIC_DRAW);
+//   glBindVertexArray(VAO);
+//   glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//   glBufferData(GL_ARRAY_BUFFER, points.size()*sizeof(Point), points.data(), GL_STATIC_DRAW);
 
-  // Attribute 0: Position
-  // location, size, type, stride, offset
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
-  glEnableVertexAttribArray(0);
+//   // Attribute 0: Position
+//   // location, size, type, stride, offset
+//   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
+//   glEnableVertexAttribArray(0);
 
-  // Attribute 1: Color
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3)));
-  glEnableVertexAttribArray(1);
-  return true;
-}
+//   // Attribute 1: Color
+//   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3)));
+//   glEnableVertexAttribArray(1);
+//   return true;
+// }
 
 /**
  * @brief sets up gl Buffers in out-of-core mode.
@@ -256,6 +255,12 @@ bool Rasterizer::setupBufferPerBlock(){
     glBindVertexArray(blocks[id].vao);
     glBindBuffer(GL_ARRAY_BUFFER, blocks[id].vbo);
 
+    // set buffer data
+    glBufferData(GL_ARRAY_BUFFER,
+                 blocks[id].count * sizeof(Point),
+                 blocks[id].points.data(),
+                 GL_STATIC_DRAW);
+
     // attrib setup once per VAO
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
     glEnableVertexAttribArray(0);
@@ -265,6 +270,37 @@ bool Rasterizer::setupBufferPerBlock(){
   }
   return true;
 }
+
+bool Rasterizer::setupSlots() {
+
+  for (int i = 0; i < NUM_SLOTS; ++i) {
+    glGenVertexArrays(1, &slots[i].vao);
+    glGenBuffers(1, &slots[i].vbo);
+
+    glBindVertexArray(slots[i].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, slots[i].vbo);
+
+    // set the capacity per slot, we use glBufferSubData
+    glBufferData(GL_ARRAY_BUFFER,
+                 NUM_POINTS_PER_SLOT * sizeof(Point),
+                 nullptr,
+                 GL_STREAM_DRAW);
+
+    // attrib 0: position (vec3)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)0);
+
+    // attrib 1: color (vec3)
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)(sizeof(glm::vec3)));
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
+  return true;
+}
+
+
 
 // Extract planes from OpenGL-style clip space VP
 void Rasterizer::buildFrustumPlanes() {
@@ -327,31 +363,24 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
       return;
     }
   }
-
-  // // transform it to view space
-  // glm::vec3 p1 = view*glm::vec4(block.bb_min, 1.0f);
-  // glm::vec3 p2 = view*glm::vec4(block.bb_max, 1.0f);
-  // glm::vec3 bb_min = glm::min(p1, p2);
-  // glm::vec3 bb_max = glm::max(p1, p2);
-
-  // for (const Plane &pl : planes) {
-  //   // Positive vertex: the AABB corner that maximizes dot(n, x)
-  //   glm::vec3 p;
-  //   p.x = (pl.n.x >= 0.0f) ? bb_max.x : bb_min.x;
-  //   p.y = (pl.n.y >= 0.0f) ? bb_max.y : bb_min.y;
-  //   p.z = (pl.n.z >= 0.0f) ? bb_max.z : bb_min.z;
-
-  //   // If even the best-case vertex is outside, the whole box is outside
-  //   if (glm::dot(pl.n, p) + pl.d < 0.0f){
-  //     block.isVisible = false;
-  //     return;
-  //   }
-  // }
 }
 
-void Rasterizer::drawBlocks()
+/**
+ * @brief draws blocks in-core.
+ */
+void Rasterizer::drawBlocks(){
+  for (int id = 0; id < NUM_BLOCKS; id++){
+    if (blocks[id].isVisible && blocks[id].count > 0){
+      glBindVertexArray(blocks[id].vao);
+      glBindBuffer(GL_ARRAY_BUFFER, blocks[id].vbo);
+      glDrawArrays(GL_POINTS, 0, (GLsizei)blocks[id].count);
+    }
+  }
+}
+
+void Rasterizer::drawBlocksOOC()
 {
-  constexpr size_t MAX_UPLOAD = 1000; // TODO: delete this after prototyping.
+  // constexpr size_t MAX_UPLOAD = 1000; // TODO: delete this after prototyping.
 
   for (int i = 0; i < loadedBlocks; ++i) {
 
@@ -370,10 +399,10 @@ void Rasterizer::drawBlocks()
     glBindVertexArray(blocks[r.blockID].vao);
     glBindBuffer(GL_ARRAY_BUFFER, blocks[r.blockID].vbo);
 
-    // takes first "uploadCount" points
+    // Buffere Data "uploadCount" points, TODO: this will be overhead
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(uploadCount * sizeof(Point)), r.points.data(), GL_STREAM_DRAW);
 
-    // blocks[r.blockID].count = (int)uploadCount;
+    // Draw points
     glDrawArrays(GL_POINTS, 0, (GLsizei)uploadCount);
 
   }
@@ -382,13 +411,13 @@ void Rasterizer::drawBlocks()
 }
 
 
-void Rasterizer::loadBlocks(){
+void Rasterizer::loadBlocksOOC(){
   // load Blocks
   loadedBlocks = 0;
   for (int i = 0; i < NUM_BLOCKS; i++) {
     Block & block = blocks[i];
     if (block.isVisible && block.count > 0){
-      dataManager.loadBlock(i, block.count); // TODO: Camera parameter should consider culling + count here
+      dataManager.enqueueBlock(i, block.count); // TODO: Camera parameter should consider culling + count here
       loadedBlocks++;
     }
   }
@@ -418,31 +447,21 @@ void Rasterizer::render(){
     view = camera.GetViewMatrix();
     shader->setMat4("View", view);
 
+    // Culling
+    cullBlocks();
     if (isOOC) {
-
-      // Culling
-      cullBlocks();
-
-      // load of blocks out-of-core
-      loadBlocks();
-
-      // get results and draw
-      drawBlocks();
-
+      // Out-of-core
+      loadBlocksOOC();
+      drawBlocksOOC();
     } else {
-      // TODO: in-core rendering should be available
-      // Bind VAO containing our point cloud
-      glBindVertexArray(VAO);
-
-      // Draw N points
-      glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points.size()));
+      // In-Core. Points are already there.
+      drawBlocks();
     }
-
     // Swap buffers & poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
-  dataManager.quit();
+  if (isOOC) dataManager.quit();
 }
 
 

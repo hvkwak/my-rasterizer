@@ -11,10 +11,12 @@ int main(int argc, char **argv) {
   std::string shader_vert = "../src/shader/shader.vert";
   std::string shader_frag = "../src/shader/shader.frag";
   std::string plyPath = "../data/Church.ply";
-  std::string outDir = "";
+  std::string outDir = "../data";
   bool isTest = false;
   bool isOOC = false;
   bool isExport = false;
+  bool isSlot = false;
+  bool isCache = false;
 
   for (int i = 1; i < argc; i++){
     std::string arg = argv[i];
@@ -26,10 +28,11 @@ int main(int argc, char **argv) {
       isExport = true;
       continue;
     }
-    if (arg == "--ooc"){
+    if (arg == "--ooc") {
       // out-of-core mode: points will be seperated into blocks in the directory "data"
-      outDir = "../data";
       isOOC = true;
+      isSlot = true;
+      isCache = true;
       continue;
     }
     if (ends_with(arg, ".ply")){
@@ -47,7 +50,7 @@ int main(int argc, char **argv) {
   }
 
   Rasterizer rasterizer;
-  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, 800, 600, 1.0, 100.0, 10.0)) {
+  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, isSlot, isCache, 800, 600, 1.0, 100.0, 10.0)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
   }

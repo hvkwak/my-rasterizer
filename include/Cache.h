@@ -16,7 +16,7 @@ class Cache{
 
 public:
     Cache();
-    bool init(std::filesystem::path dir, size_t cap);
+    bool init(size_t cap);
     std::ofstream& get(int id, const std::filesystem::path& p);
     void close_all();
 

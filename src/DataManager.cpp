@@ -23,46 +23,52 @@ bool DataManager::init(const std::filesystem::path& plyPath,
                        glm::vec3& bb_max_,
                        std::vector<Block>& blocks)
 {
+  // Store outDir
+  outDir = outDir_;
 
+  // Clean up old block files (rm ../data/*.bin)
+  if (std::filesystem::exists(outDir)) {
+    for (const auto &entry : std::filesystem::directory_iterator(outDir)) {
+      if (entry.path().extension() == ".bin") {
+        std::filesystem::remove(entry.path());
+      }
+    }
+    std::cout << "Cleaned up old block files in " << outDir << std::endl;
+  }
+
+  // reads .ply
   if (!readPLY(plyPath, bb_min_, bb_max_)){
     std::cerr << "Error: Failed to do readPLY()" <<  std::endl;
     return false;
   }
 
+  // sets up LRU cache for file writes when creating block files
+  if (!cache.init(CACHE_SIZE)) {
+    std::cerr << "Error: Failed to initialize cache." << std::endl;
+    return false;
+  }
+
+  // create Blocks
+  if (!createBlocks(plyPath, bb_min_, bb_max_, blocks, isOOC_)) {
+    std::cerr << "Error: Failed to do createBlocks()" << std::endl;
+    return false;
+  }
+
+  // Out-of-core and in-core
   if (isOOC_){
-    // Store outDir for later use
-    outDir = outDir_;
-
-    // sets up LRU cache for file writes when reading .ply file
-    if (!cache.init(outDir, CACHE_SIZE)) {
-      std::cerr << "Error: Failed to initialize cache with directory: " << outDir << std::endl;
-      return false;
-    }
-
-    // Clean up old block files (rm ../data/*.bin)
-    if (std::filesystem::exists(outDir)) {
-      for (const auto& entry : std::filesystem::directory_iterator(outDir)) {
-        if (entry.path().extension() == ".bin") {
-          std::filesystem::remove(entry.path());
-        }
-      }
-      std::cout << "Cleaned up old block files in " << outDir << std::endl;
-    }
-
-    // sets up workers for data load out-of-core
+    // setup multi-threading workers for out-of-core load
     workers.clear();
     workers.reserve(NUM_WORKERS);
     for (int i = 0; i < NUM_WORKERS; i++){
       workers.emplace_back(workerMain, i, std::ref(jobQ), std::ref(resultQ));
     }
-
-    if (!createBlocks(plyPath, bb_min_, bb_max_, blocks)) {
-      std::cerr << "Error: Failed to do createBlocks()" << std::endl;
-      return false;
+  } else {
+    // all block points in-core.
+    for (int id = 0; id < NUM_BLOCKS; id++){
+      loadBlock(pathFor(id), blocks[id].count, blocks[id].points);
     }
   }
 
-  
   return true;
 }
 
@@ -133,7 +139,7 @@ bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_mi
   return true;
 }
 
-bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks)
+bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks, bool isOOC_)
 {
   std::ifstream file(plyPath, std::ios::binary);
   if (!file.is_open()) {
@@ -202,16 +208,16 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
   }
 
   // flush leftovers
-  for (int id = 0; id < NUM_BLOCKS; ++id)
+  for (int id = 0; id < NUM_BLOCKS; ++id){
     flush(id, outBuf);
+  }
 
   cache.close_all();
-
+  std::cout << "created " << NUM_BLOCKS << "blocks." << std::endl;
   return true;
 }
 
-void DataManager::loadBlock(int id, int count) {
-  // enqueue to load if visible
+void DataManager::enqueueBlock(int id, int count) {
   Job job;
   job.blockID = id;
   job.count = count;
@@ -225,19 +231,80 @@ std::filesystem::path DataManager::pathFor(int id) {
   return outDir / name;
 }
 
+void DataManager::loadBlock(const std::filesystem::path& path, const int & count, Result & r){
+  std::ifstream is(path, std::ios::binary);
+
+  /*ADDED ERROR HANDLING*/
+  if (!is.is_open()) {
+    std::cerr << "Error: Could not open block file: " << path << std::endl;
+    r.points.clear();
+    return;
+  }
+
+  r.points.resize(count);
+  is.read(reinterpret_cast<char *>(r.points.data()), count * sizeof(Point));
+
+  /*ADDED ERROR HANDLING*/
+  if (!is.good() && !is.eof()) {
+    std::cerr << "Error: Failed to read block data from: " << path << std::endl;
+    r.points.clear();
+    return;
+  }
+
+  /*ADDED ERROR HANDLING*/
+  if ((size_t)is.gcount() != count * sizeof(Point)) {
+    std::cerr << "Error: Incomplete read from block file: " << path
+              << " (expected " << count * sizeof(Point)
+              << " bytes, got " << is.gcount() << " bytes)" << std::endl;
+    r.points.clear();
+    return;
+  }
+}
+
+void DataManager::loadBlock(const std::filesystem::path& path, const int & count, std::vector<Point>& points){
+  std::ifstream is(path, std::ios::binary);
+
+  /*ADDED ERROR HANDLING*/
+  if (!is.is_open()) {
+    std::cerr << "Error: Could not open block file: " << path << std::endl;
+    points.clear();
+    return;
+  }
+
+  points.resize(count);
+  is.read(reinterpret_cast<char *>(points.data()), count * sizeof(Point));
+
+  /*ADDED ERROR HANDLING*/
+  if (!is.good() && !is.eof()) {
+    std::cerr << "Error: Failed to read block data from: " << path << std::endl;
+    points.clear();
+    return;
+  }
+
+  /*ADDED ERROR HANDLING*/
+  if ((size_t)is.gcount() != count * sizeof(Point)) {
+    std::cerr << "Error: Incomplete read from block file: " << path
+              << " (expected " << count * sizeof(Point)
+              << " bytes, got " << is.gcount() << " bytes)" << std::endl;
+    points.clear();
+    return;
+  }
+}
+
 void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resultQ)
 {
   Job job;
   while (jobQ.pop(job)) {
 
-    // Create Results
+    // Read binary file
     Result r;
     r.blockID = job.blockID;
+    loadBlock(job.path, job.count, r);
 
     // Read binary file
-    std::ifstream is(job.path, std::ios::binary);
-    r.points.resize(job.count);
-    is.read(reinterpret_cast<char*>(r.points.data()), job.count * sizeof(Point));
+    // std::ifstream is(job.path, std::ios::binary);
+    // r.points.resize(count);
+    // is.read(reinterpret_cast<char*>(r.points.data()), job.count * sizeof(Point));
 
     // move to Result
     resultQ.push(std::move(r));
@@ -276,6 +343,13 @@ void DataManager::flush(int id, std::array<std::vector<Point>, NUM_BLOCKS>& outB
     return;
   auto &os = cache.get(id, pathFor(id));
   os.write(reinterpret_cast<const char *>(v.data()), (std::streamsize)(v.size() * sizeof(Point)));
+
+  /*ADDED ERROR HANDLING*/
+  if (!os.good()) {
+    std::cerr << "Error: Failed to write block data to: " << pathFor(id)
+              << " (block " << id << ", " << v.size() << " points)" << std::endl;
+  }
+
   v.clear();
 }
 

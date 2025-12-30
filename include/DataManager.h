@@ -27,7 +27,7 @@ public:
   bool init(const std::filesystem::path& plyPath, const std::filesystem::path& outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks);
 
   // load Block
-  void loadBlock(int id, int count);
+  void enqueueBlock(int id, int count);
 
   // quit
   void quit();
@@ -56,13 +56,15 @@ private:
 
   // load .ply and create blocks
   bool readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_);
-  bool createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks);
+  bool createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks, bool isOOC_);
   std::filesystem::path pathFor(int id);
 
   void flush(int id, std::array<std::vector<Point>, NUM_BLOCKS> &outBuf);
   void bboxExpand(const glm::vec3 &p, glm::vec3 &bb_min_, glm::vec3 &bb_max);
 
   static void workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resultQ);
-};
+  static void loadBlock(const std::filesystem::path& path, const int & count, Result & r);
+  static void loadBlock(const std::filesystem::path& path, const int & count, std::vector<Point>& points);
 
+};
 #endif // DATAMANAGER_H
