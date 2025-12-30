@@ -3,21 +3,22 @@ A 3D point cloud rasterizer built with C++ and OpenGL.
 
 ## News
 - (NEXT) Implemented prioritized multithreaded data streaming with a 64-slot resident cache and background prefetch of lower-priority sub-blocks.
-- [2025-12-30] Implemented in-core rendering with block culling, resulting in rendering upto __ FPS.
+- [2025-12-30] Implemented in-core rendering with view-dependent block culling.
 - [2025-12-29] Implemented view-dependent block culling.
 - [2025-12-28] Implemented out-of-core rendering for massive point clouds exceeding available RAM.
-  - Implemented multithreaded binary data loading of 10×10×10 partitioned spatial blocks.
-  - The main thread synchronizes on loading blocks to prioritize stable rendering.
+  - Implemented spatial block partitioning with multi-threaded file I/O.
   - Implemented LRU cache to reuse files during block partitioning, reducing file I/O overhead by minimizing repeated file open/close operations.
 - [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.
-  - Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbit camera.
+<!--
+Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbit camera.
+--->
 
 ## Features
-- Real-time 3D point cloud rendering from PLY file format
 - **Out-of-core rendering** for massive datasets exceeding available RAM
-- Multi-threaded (async) data streaming with spatial partitioning
+- Multi-threaded (async) data loading (streaming) with spatial partitioning
 - Custom vertex and fragment shader support
-- Interactive camera controls (orbit camera modes for testing)
+- Interactive camera controls (+orbit camera modes for testing)
+- Real-time 3D point cloud rendering from PLY file format
 - OpenGL-based rendering pipeline
 
 ## Prerequisites
@@ -51,9 +52,9 @@ make
 ```
 The executable `main` will be created in the `build` directory.
 
-## Usage
+## Run
 
-### Basic Usage
+### Default
 Run the program in the `build` directory:
 ```bash
 ./main
