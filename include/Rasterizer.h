@@ -5,13 +5,13 @@
 #include <GLFW/glfw3.h>
 #include "Shader.h"
 #include "Camera.h"
-#include "Point.h"
 #include "Plane.h"
 #include "Block.h"
 #include "Slot.h"
 #include "DataManager.h"
 #include <vector>
 #include <filesystem>
+#include <unordered_set>
 
 class Rasterizer
 {
@@ -28,7 +28,8 @@ public:
             unsigned int window_height_,
             float z_near_,
             float z_far_,
-            float rotateAngle_);
+            float rotateAngle_,
+            float distanceFactor_);
   void render();
   Rasterizer();
   ~Rasterizer();
@@ -42,6 +43,7 @@ private:
   bool setupCameraPose();
   bool setupCallbacks();
   bool setupDataManager();
+  bool filterBlocks();
   bool setupBufferWrapper();
   // bool setupBuffer();
   bool setupBufferPerBlock();
@@ -66,6 +68,7 @@ private:
 
   // slot functions
   void initSlots(std::array<Slot, NUM_SLOTS>& slots);
+  int findSlot(int blockID);
 
   // load, draw, cull Blocks
   void cullBlocks();
@@ -73,6 +76,11 @@ private:
   void loadBlocksOOC();
   void drawBlocksOOC();
   int loadedBlocks = 0;
+  int loadingBlocks = 0;
+  int cachedBlocks = 0;
+
+  // orbit camera test mode
+  void setOrbitCamera();
 
   // Culling
   void aabbIntersectsFrustum(Block & block);
@@ -124,12 +132,13 @@ private:
   // timing to calculate FPS
   float deltaTime = 0.0f; // time between current frame and last frame
   float lastFrame = 0.0f;
+  bool isFPSInitialized = false;
+  float maxFPS = 0.0f;
   float acc = 0.0f;
   unsigned int frames = 0;
-  float angularSpeed;// = glm::radians(10.0f); // 10.0 degrees/sec
+  float angularSpeed = 0.0f;// = glm::radians(10.0f); // 10.0 degrees/sec
+  float distFactor = 0.0f;
 
-  // VBO, VAO for in-core rendering?
-  unsigned int VBO = 0, VAO = 0;
   bool glInitialized = false;
 
   // Modes Selection
@@ -140,6 +149,7 @@ private:
   std::vector<Block> blocks;
   std::vector<Slot> slots;
   std::vector<Slot> sub_slots;
+  std::unordered_set<int> slotBlocks; // blocks in Slot
 };
 
 

@@ -160,6 +160,7 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
         glm::vec3 mn = bb_min_ + glm::vec3(x, y, z) * cell;
         glm::vec3 mx = bb_min_ + glm::vec3(x + 1, y + 1, z + 1) * cell;
 
+        blocks[id].blockID = id; // needed after we filter out empty blocks
         blocks[id].bb_min = mn;
         blocks[id].bb_max = mx;
       }
@@ -213,15 +214,16 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
   }
 
   cache.close_all();
-  std::cout << "created " << NUM_BLOCKS << "blocks." << std::endl;
+  std::cout << "created " << NUM_BLOCKS << " blocks." << std::endl;
   return true;
 }
 
-void DataManager::enqueueBlock(int id, int count) {
+void DataManager::enqueueBlock(int blockID, int slotIdx, int count) {
   Job job;
-  job.blockID = id;
+  job.blockID = blockID;
+  job.slotIdx = slotIdx;
   job.count = count;
-  job.path = pathFor(id);
+  job.path = pathFor(blockID);
   jobQ.push(std::move(job));
 }
 
@@ -299,6 +301,8 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
     // Read binary file
     Result r;
     r.blockID = job.blockID;
+    r.slotIdx = job.slotIdx;
+    r.count = job.count;
     loadBlock(job.path, job.count, r);
 
     // Read binary file

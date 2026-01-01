@@ -2,8 +2,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "DataManager.h"
-#include "Utils.h"
 #include "Shader.h"
+#include "Utils.h"
 #include <iostream>
 #include <cstdio>
 #include <cfloat>
@@ -18,12 +18,14 @@ Rasterizer::~Rasterizer(){
     if (glInitialized && shader->ID != 0) glDeleteProgram(shader->ID);
     delete shader;
   }
-  // optional: de-allocate all resources once they've outlived their purpose:
-  // ------------------------------------------------------------------------
-  if (glInitialized) {
-    if (VAO != 0) glDeleteVertexArrays(1, &VAO);
-    if (VBO != 0) glDeleteBuffers(1, &VBO);
-  }
+
+  // TODO: check if this is needed
+  // // optional: de-allocate all resources once they've outlived their purpose:
+  // // ------------------------------------------------------------------------
+  // if (glInitialized) {
+  //   if (VAO != 0) glDeleteVertexArrays(1, &VAO);
+  //   if (VBO != 0) glDeleteBuffers(1, &VBO);
+  // }
 
   if (window != nullptr) {
     glfwDestroyWindow(window);
@@ -46,7 +48,8 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
                       unsigned int window_height_,
                       float z_near_,
                       float z_far_,
-                      float rotateAngle_){
+                      float rotateAngle_,
+                      float distanceFactor_){
   // Set member variables
   plyPath = plyPath_;
   outDir = outDir_;
@@ -59,13 +62,13 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   z_near = z_near_;
   z_far = z_far_;
   angularSpeed = glm::radians(rotateAngle_);
+  distFactor = distanceFactor_; // for orbital camera pose in test mode
   blocks.resize(NUM_BLOCKS);
-  slots.resize(NUM_SLOTS);
-  sub_slots.resize(NUM_SUB_SLOTS);
 
   // setups
   if (!setupWindow()) return false;
   if (!setupDataManager()) return false;
+  if (!filterBlocks()) return false;
   if (!setupRasterizer()) return false;
   if (!setupCameraPose()) return false;
   if (!setupCallbacks()) return false;
@@ -213,9 +216,22 @@ bool Rasterizer::setupDataManager(){
   return true;
 }
 
+/**
+ * @brief filters blocks out
+ */
+bool Rasterizer::filterBlocks(){
+  size_t k = 0;
+  while (k < blocks.size()) {
+    if (blocks[k].count == 0) {
+      blocks.erase(blocks.begin() + k); // no k++
+    } else {
+      k++;
+    }
+  }
+  return true;
+}
 
 bool Rasterizer::setupBufferWrapper(){
-  // TODO: in-core mode implementieren!
   return isOOC ? setupSlots() : setupBufferPerBlock();
 }
 
@@ -248,30 +264,35 @@ bool Rasterizer::setupBufferWrapper(){
  */
 bool Rasterizer::setupBufferPerBlock(){
 
-  for (int id = 0; id < NUM_BLOCKS; id++) {
-    glGenVertexArrays(1, &blocks[id].vao);
-    glGenBuffers(1, &blocks[id].vbo);
+  for (int i = 0; i < blocks.size(); i++) {
+    glGenVertexArrays(1, &blocks[i].vao);
+    glGenBuffers(1, &blocks[i].vbo);
 
-    glBindVertexArray(blocks[id].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, blocks[id].vbo);
+    glBindVertexArray(blocks[i].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, blocks[i].vbo);
 
     // set buffer data
-    glBufferData(GL_ARRAY_BUFFER,
-                 blocks[id].count * sizeof(Point),
-                 blocks[id].points.data(),
-                 GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, blocks[i].count * sizeof(Point),
+                 blocks[i].points.data(), GL_STATIC_DRAW);
 
     // attrib setup once per VAO
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)(sizeof(glm::vec3))); // adjust field name
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point),
+                          (void *)(sizeof(glm::vec3))); // adjust field name
     glEnableVertexAttribArray(1);
   }
   return true;
 }
 
 bool Rasterizer::setupSlots() {
+
+  // init slots
+  slots.resize(NUM_SLOTS);
+  sub_slots.resize(NUM_SUB_SLOTS);
+  slotBlocks.reserve(slots.size());
+  for (const auto& s : slots) slotBlocks.insert(s.blockID);
 
   for (int i = 0; i < NUM_SLOTS; ++i) {
     glGenVertexArrays(1, &slots[i].vao);
@@ -318,7 +339,7 @@ void Rasterizer::buildFrustumPlanes() {
 }
 
 void Rasterizer::cullBlocks(){
-  for (int i = 0; i < NUM_BLOCKS; i++){
+  for (int i = 0; i < blocks.size(); i++){
     aabbIntersectsFrustum(blocks[i]);
   }
 }
@@ -326,7 +347,6 @@ void Rasterizer::cullBlocks(){
 // Returns true if AABB intersects or is inside the frustum
 void Rasterizer::aabbIntersectsFrustum(Block & block) {
 
-  if (block.count == 0) return;
   block.isVisible = true;
 
   // Generate all 8 corners of the AABB in world space
@@ -360,68 +380,124 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
     // If even the best-case vertex is outside, the whole box is outside
     if (glm::dot(plane.n, p) + plane.d < 0.0f) {
       block.isVisible = false;
+
       return;
     }
   }
+  // add distance to camera center for visible blocks
+  glm::vec3 bb_center = 0.5f * (bb_min + bb_max);
+  block.distance = glm::distance(glm::vec3(0.0f, 0.0f, 0.0f), bb_center);
 }
 
 /**
  * @brief draws blocks in-core.
  */
 void Rasterizer::drawBlocks(){
-  for (int id = 0; id < NUM_BLOCKS; id++){
-    if (blocks[id].isVisible && blocks[id].count > 0){
-      glBindVertexArray(blocks[id].vao);
-      glBindBuffer(GL_ARRAY_BUFFER, blocks[id].vbo);
-      glDrawArrays(GL_POINTS, 0, (GLsizei)blocks[id].count);
+  for (int i = 0; i < blocks.size(); i++){
+    if (blocks[i].isVisible && blocks[i].count > 0){
+      glBindVertexArray(blocks[i].vao);
+      glBindBuffer(GL_ARRAY_BUFFER, blocks[i].vbo);
+      glDrawArrays(GL_POINTS, 0, (GLsizei)blocks[i].count);
     }
   }
 }
 
 void Rasterizer::drawBlocksOOC()
 {
-  // constexpr size_t MAX_UPLOAD = 1000; // TODO: delete this after prototyping.
+  // draw loaded slots first.
+  for (int i = 0; i < NUM_SLOTS; i++){
+    if (slots[i].status != LOADED) continue;
 
-  for (int i = 0; i < loadedBlocks; ++i) {
+    // bind current block VAO, VBO
+    glBindVertexArray(slots[i].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, slots[i].vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
+
+    // Draw points
+    glDrawArrays(GL_POINTS, 0, (GLsizei)slots[i].count);
+  }
+
+  // draw loading loading blocks
+  for (int i = 0; i < NUM_SLOTS; i++) {
+
+    if (slots[i].status != LOADING) continue;
 
     Result r;
     dataManager.getResult(r);
 
-    // uploadCount update
-    // const size_t uploadCount = std::min(r.points.size(), MAX_UPLOAD);
-    const size_t uploadCount = blocks[r.blockID].count;
-
-    if (uploadCount == 0) {
-      continue;
-    }
-
     // bind current block VAO, VBO
-    glBindVertexArray(blocks[r.blockID].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, blocks[r.blockID].vbo);
-
-    // Buffere Data "uploadCount" points, TODO: this will be overhead
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(uploadCount * sizeof(Point)), r.points.data(), GL_STREAM_DRAW);
-
+    glBindVertexArray(slots[r.slotIdx].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, slots[r.slotIdx].vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, r.count * sizeof(Point), r.points.data());
     // Draw points
-    glDrawArrays(GL_POINTS, 0, (GLsizei)uploadCount);
+    glDrawArrays(GL_POINTS, 0, (GLsizei)r.count);
 
+    glBindVertexArray(0);
+  }
+}
+
+int Rasterizer::findSlot(int blockID) {
+  for (int i = 0; i < NUM_SLOTS; i++){
+    if (blockID == slots[i].blockID){
+      return i;
+    }
+  }
+  return -1;
+}
+
+void Rasterizer::loadBlocksOOC(){
+
+  // sort blocks: visible and near to camera center blocks first
+  std::sort(blocks.begin(), blocks.end(),
+            [](Block& a, Block& b) {
+              return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distance < b.distance;
+            }
+          );
+
+  // load to slots
+  const int limit = std::min<int>(NUM_SLOTS, blocks.size());
+  loadedBlocks = 0; // loaded visible blocks.
+  loadingBlocks = 0;
+  cachedBlocks = 0;
+  for (int i = 0; i < limit; i++) {
+    bool isVisible = blocks[i].isVisible;
+    if (isVisible){
+      int blockID = blocks[i].blockID;
+      int slotIdx = findSlot(blockID);
+      int blockCount = std::min(blocks[i].count, NUM_POINTS_PER_SLOT);
+
+      if (slotIdx == -1) {
+        // not available in slot. load.
+        dataManager.enqueueBlock(blockID, i, blockCount);
+        slots[i].status = LOADING;
+        loadingBlocks++;
+      } else {
+        // available in slot. just swap it. slots[i] now has the right block
+        std::swap(slots[slotIdx], slots[i]); // TODO: checkpoint
+        slots[i].status = LOADED;
+        loadedBlocks++;
+      }
+    } else {
+      slots[i].blockID = -1; //
+      slots[i].status = EMPTY;
+    }
   }
   // std::cout << "loadedBlocks this frame: " << loadedBlocks << "\n";
-  glBindVertexArray(0);
+
+  // TODO: "caching additional blocks" implementieren
 }
 
 
-void Rasterizer::loadBlocksOOC(){
-  // load Blocks
-  loadedBlocks = 0;
-  for (int i = 0; i < NUM_BLOCKS; i++) {
-    Block & block = blocks[i];
-    if (block.isVisible && block.count > 0){
-      dataManager.enqueueBlock(i, block.count); // TODO: Camera parameter should consider culling + count here
-      loadedBlocks++;
-    }
-  }
-};
+/**
+ * @brief sets orbital camera pose
+ */
+void Rasterizer::setOrbitCamera(){
+  // test mode: orbit camera around scene center
+  float theta = angularSpeed * deltaTime;
+  glm::vec3 dir = camera_position - center;
+  camera_position = center + (Rz(theta) * dir);
+  camera.changePose(camera_position, center);
+}
 
 void Rasterizer::render(){
 
@@ -430,14 +506,7 @@ void Rasterizer::render(){
     updateFPS();
     processInput();
 
-    if (isTest){
-      // test mode: orbit camera around scene center
-      const float theta = angularSpeed * deltaTime;
-
-      const glm::vec3 dir = camera_position - center;
-      camera_position = center + (Rz(theta) * dir);
-      camera.changePose(camera_position, center);
-    }
+    if (isTest) setOrbitCamera();
 
     glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -449,24 +518,39 @@ void Rasterizer::render(){
 
     // Culling
     cullBlocks();
+
+    // load and draw blocks
     if (isOOC) {
+
       // Out-of-core
       loadBlocksOOC();
       drawBlocksOOC();
+
     } else {
+
       // In-Core. Points are already there.
       drawBlocks();
+
     }
+
     // Swap buffers & poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
+
+  // quit
   if (isOOC) dataManager.quit();
+  std::cout << "Max FPS: " << maxFPS << std::endl;
 }
 
 
 void Rasterizer::updateFPS(){
   float currentFrame = static_cast<float>(glfwGetTime());
+  if (!isFPSInitialized){
+    lastFrame = currentFrame;
+    isFPSInitialized = true;
+    return;
+  }
   deltaTime = currentFrame - lastFrame;
   lastFrame = currentFrame;
 
@@ -476,10 +560,13 @@ void Rasterizer::updateFPS(){
   if (acc > 1.0){
     float fps = frames / acc;
 
+    // benchmark FPS
+    if (fps > maxFPS){
+      maxFPS = fps;
+    }
     char buf[128];
     std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f", fps);
     glfwSetWindowTitle(window, buf);
-
     acc = 0.0f;
     frames = 0;
   }
@@ -580,3 +667,22 @@ void Rasterizer::framebuffer_size_callback(GLFWwindow *window, int width, int he
   // and height will be significantly larger than specified on retina displays.
   glViewport(0, 0, width, height);
 }
+
+
+// void uploadToSlot(Slot& s, BlockID id, const std::vector<Point>& points, uint64_t frame) {
+//   const uint32_t uploadCount = (uint32_t)std::min<size_t>(points.size(), CAP_POINTS_PER_SLOT);
+
+//   glBindBuffer(GL_ARRAY_BUFFER, s.vbo);
+
+//   // ✅ 내용만 덮어쓰기 (버퍼 크기 안 바뀜!)
+//   glBufferSubData(GL_ARRAY_BUFFER,
+//                   0,
+//                   uploadCount * sizeof(Point),
+//                   points.data());
+
+//   glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+//   s.block = id;
+//   s.count = uploadCount;
+//   s.lastUsedFrame = frame;
+// }

@@ -9,11 +9,14 @@ constexpr int GRID = 10;
 constexpr int NUM_BLOCKS = GRID*GRID*GRID;
 
 struct Block {
-  unsigned int vbo = 0, vao = 0;
+  int blockID = -1;
   int count = 0;
-  int used = 0;
   bool isVisible = false;
   glm::vec3 bb_min, bb_max;
+  float distance = 0.0;
+
+  // used in in-core mode
+  unsigned int vbo = 0, vao = 0;
   std::vector<Point> points;
 };
 

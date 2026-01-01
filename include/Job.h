@@ -11,11 +11,14 @@
 struct Job {
   int blockID; // block id
   int count;
+  int slotIdx;
   std::filesystem::path path;
 };
 
 struct Result {
   int blockID; // block id
+  int slotIdx;
+  int count;
   std::vector<Point> points;
 };
 

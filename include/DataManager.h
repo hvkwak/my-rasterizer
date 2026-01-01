@@ -27,7 +27,7 @@ public:
   bool init(const std::filesystem::path& plyPath, const std::filesystem::path& outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks);
 
   // load Block
-  void enqueueBlock(int id, int count);
+  void enqueueBlock(int blockID, int slotIdx, int count);
 
   // quit
   void quit();

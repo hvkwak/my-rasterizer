@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   }
 
   Rasterizer rasterizer;
-  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, isSlot, isCache, 800, 600, 1.0, 100.0, 10.0)) {
+  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, isSlot, isCache, 800, 600, 1.0, 100.0, 10.0,  0.05f)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
   }
