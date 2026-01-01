@@ -3,6 +3,7 @@ A 3D point cloud rasterizer built with C++ and OpenGL.
 
 ## News
 - (NEXT) Implemented prioritized multithreaded data streaming with a 64-slot resident cache and background prefetch of lower-priority sub-blocks.
+- [2026-01-01] Implemented out-of-core rendering based on reserved block slots, reducing `BufferData()` overheads for every block per frame.
 - [2025-12-30] Implemented in-core rendering with view-dependent block culling.
 - [2025-12-29] Implemented view-dependent block culling.
 - [2025-12-28] Implemented out-of-core rendering for massive point clouds exceeding available RAM.
