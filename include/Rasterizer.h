@@ -63,8 +63,8 @@ private:
   static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
   static void window_focus_callback(GLFWwindow* window, int focused);
 
-  // updateFPS
-  void updateFPS();
+  // updateInfo
+  void updateInfo();
 
   // slot functions
   void initSlots(std::array<Slot, NUM_SLOTS>& slots);
@@ -78,6 +78,9 @@ private:
   int loadedBlocks = 0;
   int loadingBlocks = 0;
   int cachedBlocks = 0;
+  int visibleBlocks = 0;
+  int maxVisibleBlocks = -INT_MAX;
+  int minVisibleBlocks = INT_MAX;
 
   // orbit camera test mode
   void setOrbitCamera();
@@ -133,7 +136,8 @@ private:
   float deltaTime = 0.0f; // time between current frame and last frame
   float lastFrame = 0.0f;
   bool isFPSInitialized = false;
-  float maxFPS = 0.0f;
+  float maxFPS = -FLT_MAX;
+  float minFPS = FLT_MAX;
   float acc = 0.0f;
   unsigned int frames = 0;
   float angularSpeed = 0.0f;// = glm::radians(10.0f); // 10.0 degrees/sec
@@ -149,7 +153,6 @@ private:
   std::vector<Block> blocks;
   std::vector<Slot> slots;
   std::vector<Slot> sub_slots;
-  std::unordered_set<int> slotBlocks; // blocks in Slot
 };
 
 

@@ -3,9 +3,9 @@
 
 #include "Point.h"
 
-constexpr int NUM_SLOTS = 64;
+constexpr int NUM_SLOTS = 200;
 constexpr int NUM_SUB_SLOTS = 16;
-constexpr int NUM_POINTS_PER_SLOT = 2000; // capacity
+constexpr int NUM_POINTS_PER_SLOT = 200000; // capacity
 
 typedef enum {
   LOADED,
