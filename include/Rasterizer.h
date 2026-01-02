@@ -33,7 +33,6 @@ public:
             const std::filesystem::path& shader_frag,
             bool isTest_,
             bool isOOC_,
-            bool isSlot_,
             bool isCache_,
             unsigned int window_width_,
             unsigned int window_height_,
@@ -94,10 +93,8 @@ private:
   void updateInfo();
 
   // Slot management
-  /** @brief Initialize rendering slots */
-  void initSlots(std::array<Slot, NUM_SLOTS>& slots);
   /** @brief Find slot index containing given block ID */
-  int findSlot(int blockID);
+  bool findSlotIndexByBlockId(std::vector<Slot>& slots_, int slotIdx, int blockID);
 
   // Block rendering
   /** @brief Cull blocks against view frustum */
@@ -106,11 +103,11 @@ private:
   void drawBlocks();
   /** @brief Load blocks in out-of-core mode */
   void loadBlocksOOC();
+  void loadBlock(const int& blockID, const int& i, const int& count, const bool& isSub);
   /** @brief Draw blocks in out-of-core mode */
   void drawBlocksOOC();
   int loadedBlocks = 0;
   int loadingBlocks = 0;
-  int cachedBlocks = 0;
   int visibleBlocks = 0;
   int maxVisibleBlocks = -INT_MAX;
   int minVisibleBlocks = INT_MAX;
@@ -183,6 +180,7 @@ private:
   // Modes Selection
   bool isTest;
   bool isOOC;
+  bool isCache;
 
   // blocks / slots / cached blocks in slot
   std::vector<Block> blocks;

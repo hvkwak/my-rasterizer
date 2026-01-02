@@ -26,7 +26,6 @@ int main(int argc, char **argv) {
   bool isTest = false;
   bool isOOC = false;
   bool isExport = false;
-  bool isSlot = false;
   bool isCache = false;
 
   for (int i = 1; i < argc; i++){
@@ -42,7 +41,10 @@ int main(int argc, char **argv) {
     if (arg == "--ooc") {
       // out-of-core mode: points will be seperated into blocks in the directory "data"
       isOOC = true;
-      isSlot = true;
+      continue;
+    }
+    if (arg == "--cache") {
+      // out-of-core mode: points will be seperated into blocks in the directory "data"
       isCache = true;
       continue;
     }
@@ -61,7 +63,7 @@ int main(int argc, char **argv) {
   }
 
   Rasterizer rasterizer;
-  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, isSlot, isCache, 800, 600, 1.0, 100.0, 10.0,  0.05f)) {
+  if (!rasterizer.init(plyPath, outDir, shader_vert, shader_frag, isTest, isOOC, isCache, 800, 600, 1.0, 100.0, 10.0,  0.05f)) {
     std::cout << "Failed to initialize Rasterizer." << std::endl;
     return 1;
   }

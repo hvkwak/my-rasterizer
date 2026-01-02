@@ -49,7 +49,6 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
                       const std::filesystem::path& shader_frag_,
                       bool isTest_,
                       bool isOOC_,
-                      bool isSlot_,
                       bool isCache_,
                       unsigned int window_width_,
                       unsigned int window_height_,
@@ -64,6 +63,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   shader_frag = shader_frag_;
   isTest = isTest_;
   isOOC = isOOC_;
+  isCache = isCache_;
   window_width = window_width_;
   window_height = window_height_;
   z_near = z_near_;
@@ -342,6 +342,31 @@ bool Rasterizer::setupSlots() {
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
+
+  for (int i = 0; i < NUM_SUB_SLOTS; ++i) {
+    glGenVertexArrays(1, &subSlots[i].vao);
+    glGenBuffers(1, &subSlots[i].vbo);
+
+    glBindVertexArray(subSlots[i].vao);
+    glBindBuffer(GL_ARRAY_BUFFER, subSlots[i].vbo);
+
+    // set the capacity per slot, we use glBufferSubData
+    glBufferData(GL_ARRAY_BUFFER, NUM_POINTS_PER_SLOT * sizeof(Point), nullptr,
+                 GL_STREAM_DRAW);
+
+    // attrib 0: position (vec3)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
+
+    // attrib 1: color (vec3)
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point),
+                          (void *)(sizeof(glm::vec3)));
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
+
   return true;
 }
 
@@ -422,6 +447,17 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
   block.distance = glm::distance(glm::vec3(0.0f, 0.0f, 0.0f), bb_center);
 }
 
+void Rasterizer::loadBlock(const int& blockID, const int& i, const int& count, const bool& isSub) {
+  dataManager.enqueueBlock(blockID, i, count, isSub);
+  if (isSub){
+    subSlots[i].blockID = blockID;
+    subSlots[i].status = LOADING;
+  }else{
+    slots[i].blockID = blockID;
+    slots[i].status = LOADING;
+  }
+  loadingBlocks++;
+}
 
 /**
  * @brief Load blocks for out-of-core rendering
@@ -439,39 +475,44 @@ void Rasterizer::loadBlocksOOC(){
   const int limit = std::min<int>(NUM_SLOTS, blocks.size());
   loadedBlocks = 0; // loaded visible blocks.
   loadingBlocks = 0;
-  cachedBlocks = 0;
   for (int i = 0; i < limit; i++) {
-    bool isVisible = blocks[i].isVisible;
-    if (isVisible){
-      int blockID = blocks[i].blockID;
-      int slotIdx = findSlot(blockID); // position in slots
-      int blockCount = std::min(blocks[i].count, NUM_POINTS_PER_SLOT);
 
-      if (slotIdx == -1) {
-        // not available in slot. load.
-        dataManager.enqueueBlock(blockID, i, blockCount);
-        slots[i].blockID = blockID;
-        slots[i].status = LOADING;
-        loadingBlocks++;
-      } else {
-        // available in slot. just swap it. slots[i] now has the right block
-        std::swap(slots[slotIdx], slots[i]);
-        slots[i].status = LOADED;
-        loadedBlocks++;
+    if (blocks[i].isVisible){
+
+      int blockID = blocks[i].blockID;
+
+      // see if it's already in slots
+      if (findSlotIndexByBlockId(slots, blockID, i)) {
+        continue;
       }
+
+      // Cache(subSlot) available. see if the block is there.
+      if (isCache && findSlotIndexByBlockId(subSlots, blockID, i)) {
+        continue;
+      };
+
+      // Not found. OOC
+      int count = std::min(blocks[i].count, NUM_POINTS_PER_SLOT);
+      loadBlock(blockID, i, count, false);
+
     } else {
-      slots[i].blockID = -1; //
+      // invisible one. just keep the slot empty.
+      slots[i].blockID = -1;
       slots[i].status = EMPTY;
     }
   }
   // std::cout << "loadedBlocks this frame: " << loadedBlocks << "\n";
 
   // caching additional blocks
-  for (int i = 0; i < NUM_SUB_SLOTS; i++){
-    int blockID = blocks[limit + i].blockID;
-    int blockCount = std::min(blocks[i].count, NUM_POINTS_PER_SLOT);
-    dataManager.enqueueBlock(blockID, i, blockCount);
-
+  if (isCache){
+    for (int i = 0; i < NUM_SUB_SLOTS; i++) {
+      int blockID = blocks[limit + i].blockID; // TODO: Can exceed blocks.size()
+      int count = std::min(blocks[limit+i].count, NUM_POINTS_PER_SLOT);
+      if (findSlotIndexByBlockId(subSlots, blockID, i)){
+        continue;
+      }
+      loadBlock(blockID, i, count, true);
+    }
   }
 }
 
@@ -500,27 +541,36 @@ void Rasterizer::drawBlocksOOC()
     i++;
   }
 
-  // draw newly loaded blocks: better synchronization when this goes next.
+  // get newly loaded blocks for slots and subSlots
   count = 0;
   while (count < loadingBlocks){
     Result r;
     dataManager.getResult(r);
+    if (!r.isSub){
+      // update slots[r.slotIdx]
+      slots[r.slotIdx].blockID = r.blockID;
+      slots[r.slotIdx].count = r.count;
+      slots[r.slotIdx].status = LOADED;
+      slots[r.slotIdx].points = std::move(r.points);
 
-    // update slots[r.slotIdx]
-    slots[r.slotIdx].blockID = r.blockID;
-    slots[r.slotIdx].count = r.count;
-    slots[r.slotIdx].status = LOADED;
-    slots[r.slotIdx].points = std::move(r.points);
+      // bind current block VAO, VBO
+      glBindVertexArray(slots[r.slotIdx].vao);
+      glBindBuffer(GL_ARRAY_BUFFER, slots[r.slotIdx].vbo);
+      glBufferSubData(GL_ARRAY_BUFFER, 0,
+                      slots[r.slotIdx].count * sizeof(Point),
+                      slots[r.slotIdx].points.data());
 
-    // bind current block VAO, VBO
-    glBindVertexArray(slots[r.slotIdx].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, slots[r.slotIdx].vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, slots[r.slotIdx].count * sizeof(Point), slots[r.slotIdx].points.data());
+      // Draw points
+      glDrawArrays(GL_POINTS, 0, (GLsizei)slots[r.slotIdx].count);
 
-    // Draw points
-    glDrawArrays(GL_POINTS, 0, (GLsizei)slots[r.slotIdx].count);
-
-    glBindVertexArray(0);
+      glBindVertexArray(0);
+    } else {
+      // update subSlots[r.slotIdx]
+      subSlots[r.slotIdx].blockID = r.blockID;
+      subSlots[r.slotIdx].count = r.count;
+      subSlots[r.slotIdx].status = LOADED;
+      subSlots[r.slotIdx].points = std::move(r.points);
+    }
     count++;
   }
 }
@@ -541,15 +591,19 @@ void Rasterizer::drawBlocks(){
 /**
  * @brief Find slot index containing given block ID
  * @param blockID Block ID to search for
- * @return Slot index, or -1 if not found
+ * @param idx target index in member variable slots
+ * @param slots_ slot vector, from which we find the blockID. Can be either slots or subSlots.
  */
-int Rasterizer::findSlot(int blockID) {
-  for (int i = 0; i < NUM_SLOTS; i++){
-    if (blockID == slots[i].blockID){
-      return i;
+bool Rasterizer::findSlotIndexByBlockId(std::vector<Slot>& slots_, int blockID, int idx) {
+  for (int i = 0; i < slots_.size(); i++) {
+    if (blockID == slots_[i].blockID) {
+      std::swap(slots_[i], slots[idx]); // slot[idx] now has the right block, TODO: see if this helps LOD
+      slots[idx].status = LOADED;
+      loadedBlocks++;
+      return true;
     }
   }
-  return -1;
+  return false;
 }
 
 

@@ -16,9 +16,8 @@ constexpr int NUM_SUB_SLOTS = 16;
 constexpr int NUM_POINTS_PER_SLOT = 200000; // capacity
 
 typedef enum {
-  LOADED,
-  LOADING,
-  CACHED,
+  LOADED, // slot
+  LOADING,// slot
   EMPTY
 } Status ;
 

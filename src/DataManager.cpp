@@ -234,12 +234,13 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
 /**
  * @brief Enqueue block loading job
  */
-void DataManager::enqueueBlock(int blockID, int slotIdx, int count) {
+void DataManager::enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& isSub) {
   Job job;
   job.blockID = blockID;
   job.slotIdx = slotIdx;
   job.count = count;
   job.path = pathFor(blockID);
+  job.isSub = isSub;
   jobQ.push(std::move(job));
 }
 
@@ -331,12 +332,8 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
     r.blockID = job.blockID;
     r.slotIdx = job.slotIdx;
     r.count = job.count;
+    r.isSub = job.isSub;
     loadBlock(job.path, job.count, r);
-
-    // Read binary file
-    // std::ifstream is(job.path, std::ios::binary);
-    // r.points.resize(count);
-    // is.read(reinterpret_cast<char*>(r.points.data()), job.count * sizeof(Point));
 
     // move to Result
     resultQ.push(std::move(r));
