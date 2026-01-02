@@ -1,5 +1,5 @@
 # My Rasterizer
-A out-of-core 3D point cloud rasterizer built with C++ and OpenGL.
+An out-of-core 3D point cloud rasterizer built with C++ and OpenGL.
 
 ## News
 - (NEXT) Benchmarks and GIF export
@@ -87,7 +87,7 @@ You can specify custom files via command line arguments:
 ```
 
 ### Camera Controls
-- **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw/Pitch Contrtol with J, L, I, K)
+- **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw/Pitch Control with J, L, I, K)
 - **Test Mode**: Enable orbital camera poses (use argument `--test` for this mode)
 
 ## License
