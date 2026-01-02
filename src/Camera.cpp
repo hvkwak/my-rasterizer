@@ -1,15 +1,23 @@
-/* -----------------------------------------------------------------------------
- * Based on code from LearnOpenGL.com | Copyright © Joey de Vries
- * Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/camera.h
- * Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
- * ----------------------------------------------------------------------------- */
+//=============================================================================
+//
+//   Camera - Camera control and view matrix computation
+//
+//   Based on code from LearnOpenGL.com | Copyright © Joey de Vries
+//   Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/camera.h
+//   Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
+//
+//   Modified by Hyovin Kwak (2026)
+//
+//=============================================================================
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "Camera.h"
 
-// constructor with vectors
+/**
+ * @brief Constructor with initial position and orientation
+ */
 Camera::Camera(glm::vec3 position /*= glm::vec3(0.0f, 0.0f, 0.0f)*/, UpAxis axis_/*=UpAxis::Z*/, float yaw /*=YAW*/, float pitch /*=PITCH*/)
   : Front(glm::vec3(0.0f, 0.0f, -1.0f)), axis(axis_), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 {
@@ -20,18 +28,23 @@ Camera::Camera(glm::vec3 position /*= glm::vec3(0.0f, 0.0f, 0.0f)*/, UpAxis axis
   updateCameraVectors();
 }
 
+/**
+ * @brief Set the world up axis (Z or Y)
+ */
 void Camera::setAxis(UpAxis axis) {
   WorldUp = (axis == UpAxis::Z) ? glm::vec3(0.0f,0.0f,1.0f) : glm::vec3(0.0f,1.0f,0.0f);
 }
 
-// returns the view matrix calculated using Euler Angles and the LookAt Matrix
+/**
+ * @brief Get the view matrix calculated using Euler Angles and LookAt Matrix
+ */
 glm::mat4 Camera::GetViewMatrix() {
   return glm::lookAt(Position, Position + Front, Up);
 }
 
-// processes input received from any keyboard-like input system. Accepts input
-// parameter in the form of camera defined ENUM (to abstract it from windowing
-// systems)
+/**
+ * @brief Process keyboard input for camera movement
+ */
 void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime) {
     float velocity = MovementSpeed * deltaTime;
     if (direction == FORWARD)
@@ -73,8 +86,9 @@ void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime) {
     //           << std::endl;
 }
 
-// processes input received from a mouse input system. Expects the offset
-// value in both the x and y direction.
+/**
+ * @brief Process mouse movement for camera rotation
+ */
 void Camera::ProcessMouseMovement(float xoffset, float yoffset) {
     xoffset *= MouseSensitivity;
     yoffset *= MouseSensitivity;
@@ -86,6 +100,9 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset) {
     updateCameraVectors();
 }
 
+/**
+ * @brief Constrain pitch angle to prevent camera flipping
+ */
 void Camera::constraintPitch(){
   if (Pitch > 89.0f)
     Pitch = 89.0f;
@@ -94,7 +111,7 @@ void Camera::constraintPitch(){
 }
 
 /**
- * @brief manually changes the camera pose
+ * @brief Manually change the camera pose
  *
  * @param position new camera position in world coordinates
  *        target new target that camera position is watching
@@ -108,8 +125,7 @@ void Camera::changePose(const glm::vec3 &position, const glm::vec3 &target) {
 }
 
 /**
- * @brief updates Yaw/Pitch based on the current position when watching the
- * target
+ * @brief Update Yaw/Pitch based on current position when watching the target
  */
 void Camera::updateYawPitch(const glm::vec3 &target) {
   glm::vec3 dir = glm::normalize(target - Position);
@@ -126,8 +142,9 @@ void Camera::updateYawPitch(const glm::vec3 &target) {
   }
 }
 
-// processes input received from a mouse scroll-wheel event. Only requires
-// input on the vertical wheel-axis
+/**
+ * @brief Process mouse scroll-wheel input for zoom
+ */
 void Camera::ProcessMouseScroll(float yoffset) {
   Zoom -= (float)yoffset;
   if (Zoom < 1.0f)
@@ -136,7 +153,9 @@ void Camera::ProcessMouseScroll(float yoffset) {
     Zoom = 45.0f;
 }
 
-// calculates the front vector from the Camera's (updated) Euler Angles
+/**
+ * @brief Update camera vectors from Euler angles
+ */
 void Camera::updateCameraVectors(GLboolean constrainPitch/*=true*/) {
   // make sure that when pitch is out of bounds, screen doesn't get flipped
   if (constrainPitch) constraintPitch();
@@ -147,6 +166,9 @@ void Camera::updateCameraVectors(GLboolean constrainPitch/*=true*/) {
   Up    = glm::normalize(glm::cross(Right, Front));
 }
 
+/**
+ * @brief Compute front vector from yaw and pitch
+ */
 glm::vec3 Camera::computeFrontFromYawPitch() const {
   float yaw_   = glm::radians(Yaw);
   float pitch_ = glm::radians(Pitch);

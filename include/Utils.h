@@ -1,23 +1,28 @@
+//=============================================================================
+//
+//   Utils - Utility functions for math and transformations
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef UTILS_H
 #define UTILS_H
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+/** @brief Clamp integer value to range [lo, hi] */
 inline int clampi(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }
 
+/** @brief Expand bounding box to include point */
 inline void bbox_expand(glm::vec3& mn, glm::vec3& mx, const glm::vec3& p) {
   mn = glm::min(mn, p);
   mx = glm::max(mx, p);
 }
 
-
-// Rx (rotate around X axis by theta radians)
-/* glm::mat3 Rx(float theta); */
-/* glm::mat3 Ry(float theta); */
-/* glm::mat3 YawPitch(float yaw, float pitch); */
-
+/** @brief Rotation matrix around Z axis */
 inline glm::mat3 Rz(float theta)
 {
   float c = std::cos(theta);
@@ -30,6 +35,7 @@ inline glm::mat3 Rz(float theta)
   );
 }
 
+/** @brief Rotation matrix around X axis */
 inline glm::mat3 Rx(float theta)
 {
   float c = std::cos(theta);
@@ -42,6 +48,7 @@ inline glm::mat3 Rx(float theta)
   );
 }
 
+/** @brief Rotation matrix around Y axis */
 inline glm::mat3 Ry(float phi)
 {
   float c = std::cos(phi);
@@ -53,7 +60,7 @@ inline glm::mat3 Ry(float phi)
   );
 }
 
-// example: yaw then pitch (R = Ry * Rx)
+/** @brief Combined rotation: yaw then pitch (R = Ry * Rx) */
 inline glm::mat3 RyRx(float theta){
   return Ry(theta) * Rx(theta);
 }

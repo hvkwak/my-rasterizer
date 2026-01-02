@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Queue - Thread-safe blocking queue for multi-threaded task management
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef QUEUE_H
 #define QUEUE_H
 #include <queue>

@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Rasterizer - Main rendering engine for point cloud visualization
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #include "Rasterizer.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -13,19 +21,14 @@
 
 Rasterizer::Rasterizer(){}
 
+/**
+ * @brief Destructor - cleanup OpenGL resources and GLFW
+ */
 Rasterizer::~Rasterizer(){
   if (shader != nullptr){
     if (glInitialized && shader->ID != 0) glDeleteProgram(shader->ID);
     delete shader;
   }
-
-  // TODO: check if this is needed
-  // // optional: de-allocate all resources once they've outlived their purpose:
-  // // ------------------------------------------------------------------------
-  // if (glInitialized) {
-  //   if (VAO != 0) glDeleteVertexArrays(1, &VAO);
-  //   if (VBO != 0) glDeleteBuffers(1, &VBO);
-  // }
 
   if (window != nullptr) {
     glfwDestroyWindow(window);
@@ -36,6 +39,10 @@ Rasterizer::~Rasterizer(){
   glfwTerminate();
 }
 
+/**
+ * @brief Initialize the rasterizer with rendering parameters
+ * @return true if initialization succeeds, false otherwise
+ */
 bool Rasterizer::init(const std::filesystem::path& plyPath_,
                       const std::filesystem::path& outDir_,
                       const std::filesystem::path& shader_vert_,
@@ -95,10 +102,7 @@ bool Rasterizer::setupRasterizer(){
 }
 
 /**
- * @brief initialize Camera Position based on bb_min, bb_max for better visualization
- *
- * @param
- * @return
+ * @brief Initialize camera position based on scene bounds
  */
 bool Rasterizer::setupCameraPose(){
 
@@ -112,6 +116,10 @@ bool Rasterizer::setupCameraPose(){
   return true;
 }
 
+/**
+ * @brief Build and compile shader program
+ * @return true if shader setup succeeds, false otherwise
+ */
 bool Rasterizer::setupShader(){
   // build and compile our shader program
   try {
@@ -137,12 +145,19 @@ bool Rasterizer::setupShader(){
   return true;
 }
 
+/**
+ * @brief Initialize frustum culling
+ * @return true if culling setup succeeds
+ */
 bool Rasterizer::setupCulling(){
   buildFrustumPlanes();
   return true;
 }
 
-
+/**
+ * @brief Initialize GLFW window
+ * @return true if window creation succeeds, false otherwise
+ */
 bool Rasterizer::setupWindow(){
   // glfw: initialize and configure
   if (glfwInit() == GLFW_FALSE) {
@@ -169,8 +184,7 @@ bool Rasterizer::setupWindow(){
 }
 
 /**
- * @brief setup input and callbacks
- *
+ * @brief Setup input callbacks
  */
 bool Rasterizer::setupCallbacks(){
   if (window == nullptr){
@@ -191,6 +205,10 @@ bool Rasterizer::setupCallbacks(){
   return true;
 }
 
+/**
+ * @brief Initialize data manager and load point cloud data
+ * @return true if data manager initialization succeeds, false otherwise
+ */
 bool Rasterizer::setupDataManager(){
 
   // Reset bounding box to initial state
@@ -217,7 +235,7 @@ bool Rasterizer::setupDataManager(){
 }
 
 /**
- * @brief filters blocks out
+ * @brief Filter out empty blocks
  */
 bool Rasterizer::filterBlocks(){
   size_t k = 0;
@@ -231,6 +249,10 @@ bool Rasterizer::filterBlocks(){
   return true;
 }
 
+/**
+ * @brief Setup buffer wrapper for in-core or out-of-core rendering
+ * @return true if buffer setup succeeds
+ */
 bool Rasterizer::setupBufferWrapper(){
   return isOOC ? setupSlots() : setupBufferPerBlock();
 }
@@ -259,8 +281,8 @@ bool Rasterizer::setupBufferWrapper(){
 // }
 
 /**
- * @brief sets up gl Buffers in out-of-core mode.
- * @return true, if setup is successful
+ * @brief Setup OpenGL buffers per block for in-core rendering
+ * @return true if setup is successful
  */
 bool Rasterizer::setupBufferPerBlock(){
 
@@ -286,11 +308,15 @@ bool Rasterizer::setupBufferPerBlock(){
   return true;
 }
 
+/**
+ * @brief Setup slots for out-of-core rendering
+ * @return true if slot setup succeeds
+ */
 bool Rasterizer::setupSlots() {
 
   // init slots
   slots.resize(NUM_SLOTS);
-  sub_slots.resize(NUM_SUB_SLOTS);
+  subSlots.resize(NUM_SUB_SLOTS);
 
   for (int i = 0; i < NUM_SLOTS; ++i) {
     glGenVertexArrays(1, &slots[i].vao);
@@ -321,7 +347,9 @@ bool Rasterizer::setupSlots() {
 
 
 
-// Extract planes from OpenGL-style clip space VP
+/**
+ * @brief Extract frustum planes from projection matrix
+ */
 void Rasterizer::buildFrustumPlanes() {
 
   // GLM matrices are column-major. Transpose to treat m[i] as row i.
@@ -336,6 +364,9 @@ void Rasterizer::buildFrustumPlanes() {
   planes[5] = normalizePlane(m[3] - m[2]); // Far
 }
 
+/**
+ * @brief Cull blocks against view frustum
+ */
 void Rasterizer::cullBlocks(){
   visibleBlocks = blocks.size();
   for (int i = 0; i < blocks.size(); i++){
@@ -343,7 +374,10 @@ void Rasterizer::cullBlocks(){
   }
 }
 
-// Returns true if AABB intersects or is inside the frustum
+/**
+ * @brief Test if AABB intersects or is inside the frustum
+ * @param block Block to test for visibility
+ */
 void Rasterizer::aabbIntersectsFrustum(Block & block) {
 
   block.isVisible = true;
@@ -389,6 +423,9 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
 }
 
 
+/**
+ * @brief Load blocks for out-of-core rendering
+ */
 void Rasterizer::loadBlocksOOC(){
 
   // sort blocks: visible and near to camera center blocks first
@@ -428,9 +465,19 @@ void Rasterizer::loadBlocksOOC(){
     }
   }
   // std::cout << "loadedBlocks this frame: " << loadedBlocks << "\n";
-  // TODO: "caching additional blocks" implementieren
+
+  // caching additional blocks
+  for (int i = 0; i < NUM_SUB_SLOTS; i++){
+    int blockID = blocks[limit + i].blockID;
+    int blockCount = std::min(blocks[i].count, NUM_POINTS_PER_SLOT);
+    dataManager.enqueueBlock(blockID, i, blockCount);
+
+  }
 }
 
+/**
+ * @brief Draw blocks in out-of-core mode
+ */
 void Rasterizer::drawBlocksOOC()
 {
   // draw existing slots first.
@@ -491,6 +538,11 @@ void Rasterizer::drawBlocks(){
   }
 }
 
+/**
+ * @brief Find slot index containing given block ID
+ * @param blockID Block ID to search for
+ * @return Slot index, or -1 if not found
+ */
 int Rasterizer::findSlot(int blockID) {
   for (int i = 0; i < NUM_SLOTS; i++){
     if (blockID == slots[i].blockID){
@@ -502,7 +554,7 @@ int Rasterizer::findSlot(int blockID) {
 
 
 /**
- * @brief sets orbital camera pose
+ * @brief Set orbital camera pose for test mode
  */
 void Rasterizer::setOrbitCamera(){
   // test mode: orbit camera around scene center
@@ -512,6 +564,9 @@ void Rasterizer::setOrbitCamera(){
   camera.changePose(camera_position, center);
 }
 
+/**
+ * @brief Main render loop
+ */
 void Rasterizer::render(){
 
   while (!glfwWindowShouldClose(window)) {
@@ -560,6 +615,9 @@ void Rasterizer::render(){
 }
 
 
+/**
+ * @brief Update FPS and frame statistics
+ */
 void Rasterizer::updateInfo(){
   float fps = 0.0f;
   float currentFrame = static_cast<float>(glfwGetTime());
@@ -593,8 +651,7 @@ void Rasterizer::updateInfo(){
 
 
 /**
- * @brief query GLFW whether relevant keys are pressed/released this frame and react accordingly
- *        -> every frame to check continuous input states
+ * @brief Process keyboard input
  */
 void Rasterizer::processInput() {
 
@@ -618,6 +675,9 @@ void Rasterizer::processInput() {
 
 }
 
+/**
+ * @brief GLFW scroll callback
+ */
 void Rasterizer::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
   auto* self = static_cast<Rasterizer*>(glfwGetWindowUserPointer(window));
@@ -625,6 +685,9 @@ void Rasterizer::scroll_callback(GLFWwindow* window, double xoffset, double yoff
   self->camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
+/**
+ * @brief GLFW mouse callback
+ */
 void Rasterizer::mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
   auto* self = static_cast<Rasterizer*>(glfwGetWindowUserPointer(window));
@@ -632,6 +695,9 @@ void Rasterizer::mouse_callback(GLFWwindow* window, double xposIn, double yposIn
   self->handleMouseMove(window, xposIn, yposIn);
 }
 
+/**
+ * @brief GLFW window focus callback
+ */
 void Rasterizer::window_focus_callback(GLFWwindow* window, int focused)
 {
   auto* self = static_cast<Rasterizer*>(glfwGetWindowUserPointer(window));
@@ -639,6 +705,9 @@ void Rasterizer::window_focus_callback(GLFWwindow* window, int focused)
   self->handleWindowFocus(window, focused);
 }
 
+/**
+ * @brief Handle window focus changes
+ */
 void Rasterizer::handleWindowFocus(GLFWwindow* window, int focused)
 {
   hasFocus = (focused == GLFW_TRUE);
@@ -653,6 +722,9 @@ void Rasterizer::handleWindowFocus(GLFWwindow* window, int focused)
   lastY = static_cast<float>(ypos);
 }
 
+/**
+ * @brief Handle mouse movement
+ */
 void Rasterizer::handleMouseMove(GLFWwindow* window, double xposIn, double yposIn)
 {
   if (!hasFocus) return;
@@ -678,8 +750,7 @@ void Rasterizer::handleMouseMove(GLFWwindow* window, double xposIn, double yposI
 }
 
 /**
- * @brief glfw: whenever the window size changed (by OS or user resize) this
- * callback function executes
+ * @brief GLFW framebuffer size callback
  */
 void Rasterizer::framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   // make sure the viewport matches the new window dimensions; note that width

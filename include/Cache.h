@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Cache - LRU cache for file stream management
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef CACHE_H
 #define CACHE_H
 
@@ -9,19 +17,28 @@
 struct CachedObj {
     std::ofstream os;
     bool header_written = false;
-    std::list<int>::iterator lru_it; // works like a pointer.
+    std::list<int>::iterator lru_it;
 };
 
 class Cache{
 
 public:
     Cache();
+
+    /** @brief Initialize cache with given capacity */
     bool init(size_t cap);
+
+    /** @brief Get file stream for given ID, opening if necessary */
     std::ofstream& get(int id, const std::filesystem::path& p);
+
+    /** @brief Close all open file streams */
     void close_all();
 
 private:
+    /** @brief Mark ID as most recently used */
     void touch(int id);
+
+    /** @brief Evict least recently used entry */
     void evict_one();
 
     std::filesystem::path outDir;

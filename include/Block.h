@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Block - Spatial block structure for point cloud partitioning
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef BLOCK_H
 #define BLOCK_H
 
@@ -8,6 +16,9 @@
 constexpr int GRID = 10;
 constexpr int NUM_BLOCKS = GRID*GRID*GRID;
 
+/**
+ * @brief Spatial block for point cloud partitioning
+ */
 struct Block {
   int blockID = -1;
   int count = 0;

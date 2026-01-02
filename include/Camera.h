@@ -1,10 +1,17 @@
+//=============================================================================
+//
+//   Camera - Camera control and view matrix computation
+//
+//   Based on code from LearnOpenGL.com | Copyright © Joey de Vries
+//   Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/camera.h
+//   Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
+//
+//   Modified by Hyovin Kwak (2026)
+//
+//=============================================================================
+
 #ifndef CAMERA_H
 #define CAMERA_H
-/* -----------------------------------------------------------------------------
- * Based on code from LearnOpenGL.com | Copyright © Joey de Vries
- * Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/camera.h
- * Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
- * ----------------------------------------------------------------------------- */
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -43,21 +50,19 @@ public:
   float Zoom;
 
 
+  /** @brief Constructor with initial position and orientation */
   Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), UpAxis axis_ = UpAxis::Z, float yaw = YAW, float pitch = PITCH);
-  // Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 0.0f, 1.0f), float yaw = YAW, float pitch = PITCH);
-  // Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), bool is_Z_UP = true, float yaw = YAW, float pitch = PITCH);
+
+  /** @brief Set the world up axis (Z or Y) */
   void setAxis(UpAxis axis);
 
-  // returns the view matrix calculated using Euler Angles and the LookAt Matrix
+  /** @brief Get the view matrix calculated using Euler Angles and LookAt Matrix */
   glm::mat4 GetViewMatrix();
 
-  // processes input received from any keyboard-like input system. Accepts input
-  // parameter in the form of camera defined ENUM (to abstract it from windowing
-  // systems)
+  /** @brief Process keyboard input for camera movement */
   void ProcessKeyboard(Camera_Movement direction, float deltaTime);
 
-  // processes input received from a mouse input system. Expects the offset
-  // value in both the x and y direction.
+  /** @brief Process mouse movement for camera rotation */
   void ProcessMouseMovement(float xoffset, float yoffset);
 
   /**
@@ -72,15 +77,18 @@ public:
    * @brief updates Yaw/Pitch based on the current position when watching the target
    */
   void updateYawPitch(const glm::vec3 &target);
+
+  /** @brief Constrain pitch angle to prevent camera flipping */
   void constraintPitch();
 
-  // processes input received from a mouse scroll-wheel event. Only requires
-  // input on the vertical wheel-axis
+  /** @brief Process mouse scroll-wheel input for zoom */
   void ProcessMouseScroll(float yoffset);
 
 private:
-  // calculates the front vector from the Camera's (updated) Euler Angles
+  /** @brief Update camera vectors from Euler angles */
   void updateCameraVectors(GLboolean constrainPitch=true);
+
+  /** @brief Compute front vector from yaw and pitch */
   glm::vec3 computeFrontFromYawPitch() const;
 };
 #endif

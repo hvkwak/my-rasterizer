@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Job - Job and Result structures for multi-threaded data loading
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef JOB_H
 #define JOB_H
 
@@ -5,9 +13,8 @@
 #include <filesystem>
 
 /**
- * @brief Jobs and Results for Worker Threads
+ * @brief Job structure for worker threads
  */
-
 struct Job {
   int blockID; // block id
   int count;
@@ -15,6 +22,9 @@ struct Job {
   std::filesystem::path path;
 };
 
+/**
+ * @brief Result structure containing loaded block data
+ */
 struct Result {
   int blockID; // block id
   int slotIdx;

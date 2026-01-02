@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   DataManager - Multi-threaded point cloud data loading and management
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #include "DataManager.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -13,9 +21,11 @@
 #include <sstream>
 #include <filesystem>
 
-// Constructor
 DataManager::DataManager() {}
 
+/**
+ * @brief Initialize data manager and load PLY file
+ */
 bool DataManager::init(const std::filesystem::path& plyPath,
                        const std::filesystem::path& outDir_,
                        bool isOOC_,
@@ -139,6 +149,9 @@ bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_mi
   return true;
 }
 
+/**
+ * @brief Create spatial blocks from point cloud
+ */
 bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks, bool isOOC_)
 {
   std::ifstream file(plyPath, std::ios::binary);
@@ -218,6 +231,9 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
   return true;
 }
 
+/**
+ * @brief Enqueue block loading job
+ */
 void DataManager::enqueueBlock(int blockID, int slotIdx, int count) {
   Job job;
   job.blockID = blockID;
@@ -227,12 +243,18 @@ void DataManager::enqueueBlock(int blockID, int slotIdx, int count) {
   jobQ.push(std::move(job));
 }
 
+/**
+ * @brief Get file path for block ID
+ */
 std::filesystem::path DataManager::pathFor(int id) {
   char name[64];
   std::snprintf(name, sizeof(name), "block_%04d.bin", id);
   return outDir / name;
 }
 
+/**
+ * @brief Load block from file (for out-of-core rendering)
+ */
 void DataManager::loadBlock(const std::filesystem::path& path, const int & count, Result & r){
   std::ifstream is(path, std::ios::binary);
 
@@ -263,6 +285,9 @@ void DataManager::loadBlock(const std::filesystem::path& path, const int & count
   }
 }
 
+/**
+ * @brief Load block from file (for in-core rendering)
+ */
 void DataManager::loadBlock(const std::filesystem::path& path, const int & count, std::vector<Point>& points){
   std::ifstream is(path, std::ios::binary);
 
@@ -293,6 +318,9 @@ void DataManager::loadBlock(const std::filesystem::path& path, const int & count
   }
 }
 
+/**
+ * @brief Worker thread main function
+ */
 void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resultQ)
 {
   Job job;
@@ -316,15 +344,24 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
   // jobQ.stop() called -> threads are over
 }
 
+/**
+ * @brief Get loaded block result from worker threads
+ */
 void DataManager::getResult(Result& out) {
   resultQ.pop(out);
 }
 
+/**
+ * @brief Stop worker threads and cleanup
+ */
 void DataManager::quit(){
   jobQ.stop();
   for (auto& t : workers) t.join();
 }
 
+/**
+ * @brief Expand bounding box to include point
+ */
 void DataManager::bboxExpand(const glm::vec3& p, glm::vec3& bb_min_, glm::vec3& bb_max_) {
   if (p.x < bb_min_.x)
     bb_min_.x = p.x;
@@ -340,7 +377,9 @@ void DataManager::bboxExpand(const glm::vec3& p, glm::vec3& bb_min_, glm::vec3& 
     bb_max_.z = p.z;
 }
 
-// Private helper: flush buffer to disk
+/**
+ * @brief Flush point buffer to disk
+ */
 void DataManager::flush(int id, std::array<std::vector<Point>, NUM_BLOCKS>& outBuf) {
   auto &v = outBuf[id];
   if (v.empty())

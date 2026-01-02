@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Slot - Slot structure for out-of-core rendering
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef SLOT_H
 #define SLOT_H
 
@@ -14,6 +22,9 @@ typedef enum {
   EMPTY
 } Status ;
 
+/**
+ * @brief Slot structure for out-of-core rendering
+ */
 struct Slot {
   int blockID = -1;
   int count = 0;

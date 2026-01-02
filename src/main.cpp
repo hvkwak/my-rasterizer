@@ -1,6 +1,17 @@
+//=============================================================================
+//
+//   Main - Entry point for the rasterizer application
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #include "Rasterizer.h"
 #include <string>
 
+/**
+ * @brief Check if string ends with given suffix
+ */
 bool ends_with(const std::string& s, const std::string& suffix) {
   return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }

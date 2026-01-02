@@ -1,3 +1,11 @@
+//=============================================================================
+//
+//   Plane - Plane representation for frustum culling
+//
+//   Copyright (C) 2026 Hyovin Kwak
+//
+//=============================================================================
+
 #ifndef PLANE_H
 #define PLANE_H
 
@@ -9,6 +17,7 @@ struct Plane {
   float d;     // plane eq: dot(n, x) + d >= 0 is inside
 };
 
+/** @brief Normalize plane equation from vec4 representation */
 Plane normalizePlane(const glm::vec4& p);
 
 #endif // PLANE_H

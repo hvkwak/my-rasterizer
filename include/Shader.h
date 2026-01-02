@@ -1,11 +1,17 @@
+//=============================================================================
+//
+//   Shader - Shader program compilation and uniform management
+//
+//   Based on code from LearnOpenGL.com | Copyright © Joey de Vries
+//   Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/shader_m.h
+//   Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
+//
+//   Modified by Hyovin Kwak (2026)
+//
+//=============================================================================
+
 #ifndef SHADER_H
 #define SHADER_H
-
-/* -----------------------------------------------------------------------------
- * Based on code from LearnOpenGL.com | Copyright © Joey de Vries
- * Source: https://github.com/JoeyDeVries/LearnOpenGL/includes/shader_m.h
- * Licensed under CC BY-NC 4.0: https://creativecommons.org/licenses/by-nc/4.0/
- * ----------------------------------------------------------------------------- */
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -19,8 +25,8 @@ class Shader
 {
 public:
     unsigned int ID;
-    // constructor generates the shader on the fly
-    // ------------------------------------------------------------------------
+
+    /** @brief Constructor - Compiles and links vertex and fragment shaders */
     Shader(const char* vertexPath, const char* fragmentPath)
     {
         // 1. retrieve the vertex/fragment source code from filePath
@@ -81,14 +87,14 @@ public:
     //     glDeleteProgram(ID);
     // }
 
-    // activate the shader
-    // ------------------------------------------------------------------------
+    /** @brief Activate the shader program */
     void use() const
-    { 
-        glUseProgram(ID); 
+    {
+        glUseProgram(ID);
     }
-    // utility uniform functions
-    // ------------------------------------------------------------------------
+
+    // Utility uniform functions
+    /** @brief Set boolean uniform */
     void setBool(const std::string &name, bool value) const
     {         
         glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value); 
