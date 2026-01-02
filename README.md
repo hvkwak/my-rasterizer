@@ -18,7 +18,7 @@ Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U
 ## Features
 - OpenGL-based real-time 3D point cloud (`.ply`) rendering pipeline with interactive camera controls
 - **Out-of-core** rendering with multi-threaded data streaming to support processing massive datasets exceeding available RAM
-- Spatial partitioning and view-dependent culling for both **In-core** and **Out-of-core** rendering
+- Spatial partitioning and view-dependent culling for both **in-core** and **out-of-core** rendering
 - LRU cache to reuse files during spatial partitioning
 - Custom vertex and fragment shader support
 
