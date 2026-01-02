@@ -1,8 +1,9 @@
 # My Rasterizer
-A 3D point cloud rasterizer built with C++ and OpenGL.
+A out-of-core 3D point cloud rasterizer built with C++ and OpenGL.
 
 ## News
-- (NEXT) Implemented prioritized multithreaded data streaming with a 64-slot resident cache and background prefetch of lower-priority sub-blocks.
+- (NEXT) Benchmarks and GIF export
+- (NEXT) Implement caching lower-priority sub-blocks to extend multi-threaded data streaming.
 - [2026-01-01] Implemented out-of-core rendering based on reserved block slots, reducing `BufferData()` overheads for every block per frame.
 - [2025-12-30] Implemented in-core rendering with view-dependent block culling.
 - [2025-12-29] Implemented view-dependent block culling.
@@ -15,12 +16,11 @@ Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U
 --->
 
 ## Features
-- **Out-of-core rendering** for massive datasets exceeding available RAM
-- Multi-threaded (async) data loading (streaming) with spatial partitioning
+- OpenGL-based real-time 3D point cloud (`.ply`) rendering pipeline with interactive camera controls
+- **Out-of-core** rendering with multi-threaded data streaming to support processing massive datasets exceeding available RAM
+- Spatial partitioning and view-dependent culling for both **In-core** and **Out-of-core** rendering
+- LRU cache to reuse files during spatial partitioning
 - Custom vertex and fragment shader support
-- Interactive camera controls (+orbit camera modes for testing)
-- Real-time 3D point cloud rendering from PLY file format
-- OpenGL-based rendering pipeline
 
 ## Prerequisites
 - CMake 3.20 or higher
@@ -29,7 +29,7 @@ Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U
 - GLFW 3.4
 - GLM (OpenGL Mathematics library)
 
-Install the following packages
+Install the following packages:
 ```bash
 sudo apt install cmake build-essential libgl1-mesa-dev libglfw3-dev libglm-dev
 ```
@@ -55,7 +55,7 @@ The executable `main` will be created in the `build` directory.
 
 ## Run
 
-### Default
+### Default Run
 Run the program in the `build` directory:
 ```bash
 ./main
@@ -70,7 +70,7 @@ You can specify custom files via command line arguments:
 ```
 
 **Available Options:**
-- `--test`: Run in test mode (orbit camera pose)
+- `--test`: Run in test mode (orbital camera pose)
 - `--ooc`: Enable out-of-core rendering mode (for large datasets)
 - `*.ply`: Specify a PLY model file
 - `*.vert`: Specify a custom vertex shader
@@ -88,7 +88,7 @@ You can specify custom files via command line arguments:
 
 ### Camera Controls
 - **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw/Pitch Contrtol with J, L, I, K)
-- **Test Mode**: Rotate around the model with orbit camera (use argument `--test` for this mode)
+- **Test Mode**: Enable orbital camera poses (use argument `--test` for this mode)
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
