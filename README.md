@@ -20,11 +20,11 @@ Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U
 ## Benchmarks
 This project is tested with `Church` scene (67M points) from `https://www.tanksandtemples.org/` on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbital camera poses. Filtering empty blocks reduces blocks from 10*10*10 to 514 blocks. Max/Min visible blocks: 198 / 90. Test #2 and #3 are organized with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points/514). 5 Workers were enabled for out-of-core multi-threaded data loading.
 
-| Nr. | num_slots |  num_subSlots | Max FPS | Min FPS | Max cacheMiss | Min cacheMiss | Config                 | Notes                                            |
-| --: | --------: | ------------: | ------: | ------: | ------------: | ------------: | ---------------------- | ------------------------------------------------ |
-|  #1 |         — |             — | 57.0965 | 25.5717 |             — |             — | `--test`               | Baseline (In-Core).              |
-|  #2 |       154 | 77 *(unused)* | 23.3062 | 12.9134 |           143 |             0 | `--ooc --test`         | Out-of-core with Slots. Caching subSlots unused.     |
-|  #3 |       154 |            77 | 26.6165 | 13.8124 |           141 |             0 | `--ooc --test --cache` | Out-of-core with Slots + Slot Caching with subSlots. |
+| Nr. | slots |  subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                            |
+| :-: | :---: | :-------: | :-----------: | :-----------------: | :-------------------- | :---------------------------------------------- |
+|  #1 |     — |         — | 57.0965 / 25.5717 |               — | `--test`               | Baseline (In-Core).              |
+|  #2 |   154 | 77 *(unused)* | 23.3062 / 12.9134 |           143 / 0 | `--ooc --test`         | Out-of-core with Slots. Caching subSlots unused.     |
+|  #3 |   154 |            77 | 26.6165 / 13.8124 |           141 / 0 | `--ooc --test --cache` | Out-of-core with Slots + Slot Caching with subSlots. |
 
 ## Features
 - OpenGL-based real-time 3D point cloud (`.ply`) rendering pipeline with interactive camera controls
