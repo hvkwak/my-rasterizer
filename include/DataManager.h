@@ -32,7 +32,7 @@ public:
   DataManager();
 
   /** @brief Initialize data manager and load PLY file */
-  bool init(const std::filesystem::path& plyPath, const std::filesystem::path& outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks);
+  bool init(const std::filesystem::path& plyPath, const std::filesystem::path& outDir_, bool isOOC_, glm::vec3& bb_min_, glm::vec3& bb_max_, std::vector<Block>& blocks, uint64_t& vertexCount);
 
   /** @brief Enqueue block loading job */
   void enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& isSub);
@@ -63,7 +63,7 @@ private:
   std::filesystem::path outDir;
 
   /** @brief Read PLY file and compute global bounding box */
-  bool readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_);
+  bool readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_, uint64_t& vertexCount_);
 
   /** @brief Create spatial blocks from point cloud */
   bool createBlocks(const std::filesystem::path& plyPath, const glm::vec3& bb_min_, const glm::vec3& bb_max_, std::vector<Block>& blocks, bool isOOC_);

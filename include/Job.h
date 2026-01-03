@@ -19,7 +19,7 @@ struct Job {
   int blockID; // block id
   int count;
   int slotIdx;
-  bool isSub;
+  bool loadSubSlots;
   std::filesystem::path path;
 };
 
@@ -30,7 +30,7 @@ struct Result {
   int blockID; // block id
   int slotIdx;
   int count;
-  bool isSub;
+  bool loadSubSlots;
   std::vector<Point> points;
 };
 

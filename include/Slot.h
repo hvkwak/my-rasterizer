@@ -11,9 +11,9 @@
 
 #include "Point.h"
 
-constexpr int NUM_SLOTS = 200;
-constexpr int NUM_SUB_SLOTS = 16;
-constexpr int NUM_POINTS_PER_SLOT = 200000; // capacity
+/* constexpr int NUM_SLOTS = 100; */
+/* constexpr int NUM_SUB_SLOTS = 50; */
+/* constexpr int NUM_POINTS_PER_SLOT = 130000; // capacity */
 
 typedef enum {
   LOADED, // slot
@@ -22,7 +22,7 @@ typedef enum {
 } Status ;
 
 /**
- * @brief Slot structure for out-of-core rendering
+ * @brief Slots for out-of-core rendering
  */
 struct Slot {
   int blockID = -1;

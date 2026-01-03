@@ -39,7 +39,8 @@ public:
             float z_near_,
             float z_far_,
             float rotateAngle_,
-            float distanceFactor_);
+            float distanceFactor_,
+            float slotFactor_);
 
   /**
    * @brief Main render loop
@@ -94,7 +95,12 @@ private:
 
   // Slot management
   /** @brief Find slot index containing given block ID */
-  bool findSlotIndexByBlockId(std::vector<Slot>& slots_, int slotIdx, int blockID);
+  bool findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<Slot>& slotsB, int blockID, int slotIdx);
+  bool findBlockInSlot(std::vector<Slot>& slotsA, int blockID);
+  float slotFactor; // take slotFactor of total blocks to build slots, e.g. 20%.
+  int num_slots;
+  int num_subSlots;
+  int num_points_per_slot;
 
   // Block rendering
   /** @brief Cull blocks against view frustum */
@@ -103,14 +109,21 @@ private:
   void drawBlocks();
   /** @brief Load blocks in out-of-core mode */
   void loadBlocksOOC();
-  void loadBlock(const int& blockID, const int& i, const int& count, const bool& isSub);
+  void loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots);
   /** @brief Draw blocks in out-of-core mode */
   void drawBlocksOOC();
-  int loadedBlocks = 0;
-  int loadingBlocks = 0;
-  int visibleBlocks = 0;
-  int maxVisibleBlocks = -INT_MAX;
-  int minVisibleBlocks = INT_MAX;
+  int loadBlockCount = 0;
+  int cacheHitsA = 0;
+  int cacheHitsB = 0;
+
+  // performance check variables
+  uint64_t vertexCount = 0;
+  int visibleCount = 0;
+  int cacheMiss = 0;
+  int maxCacheMiss = -INT_MAX;
+  int minCacheMiss = INT_MAX;
+  int maxVisibleCount = -INT_MAX;
+  int minVisibleCount = INT_MAX;
 
   /** @brief Set orbital camera pose for test mode */
   void setOrbitCamera();
@@ -175,7 +188,9 @@ private:
   float angularSpeed = 0.0f;// = glm::radians(10.0f); // 10.0 degrees/sec
   float distFactor = 0.0f;
 
+  // initializers
   bool glInitialized = false;
+  bool cacheInitialized = false;
 
   // Modes Selection
   bool isTest;

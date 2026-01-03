@@ -31,7 +31,8 @@ bool DataManager::init(const std::filesystem::path& plyPath,
                        bool isOOC_,
                        glm::vec3& bb_min_,
                        glm::vec3& bb_max_,
-                       std::vector<Block>& blocks)
+                       std::vector<Block>& blocks,
+                       uint64_t& vertexCount)
 {
   // Store outDir
   outDir = outDir_;
@@ -47,7 +48,7 @@ bool DataManager::init(const std::filesystem::path& plyPath,
   }
 
   // reads .ply
-  if (!readPLY(plyPath, bb_min_, bb_max_)){
+  if (!readPLY(plyPath, bb_min_, bb_max_, vertexCount)){
     std::cerr << "Error: Failed to do readPLY()" <<  std::endl;
     return false;
   }
@@ -86,7 +87,7 @@ bool DataManager::init(const std::filesystem::path& plyPath,
  * @brief reads a .ply file and compute a global bbox
  *
  */
-bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_)
+bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_min_, glm::vec3& bb_max_, uint64_t & vertexCount_)
 {
   std::ifstream file(plyPath, std::ios::binary);
   if (!file.is_open()) {
@@ -130,6 +131,7 @@ bool DataManager::readPLY(const std::filesystem::path& plyPath, glm::vec3& bb_mi
   std::vector<FilePoint> buf(BATCH);
 
   file.seekg(dataStart);
+  vertexCount_ = vertexCount;
   uint64_t remaining = vertexCount;
   while (remaining > 0) {
     uint64_t take = std::min<uint64_t>(remaining, buf.size());
@@ -234,13 +236,13 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
 /**
  * @brief Enqueue block loading job
  */
-void DataManager::enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& isSub) {
+void DataManager::enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots) {
   Job job;
   job.blockID = blockID;
   job.slotIdx = slotIdx;
   job.count = count;
   job.path = pathFor(blockID);
-  job.isSub = isSub;
+  job.loadSubSlots = loadSubSlots;
   jobQ.push(std::move(job));
 }
 
@@ -332,7 +334,7 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
     r.blockID = job.blockID;
     r.slotIdx = job.slotIdx;
     r.count = job.count;
-    r.isSub = job.isSub;
+    r.loadSubSlots = job.loadSubSlots;
     loadBlock(job.path, job.count, r);
 
     // move to Result
