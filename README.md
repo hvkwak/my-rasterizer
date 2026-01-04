@@ -1,12 +1,20 @@
 # My Rasterizer
-An experimental out-of-core 3D point cloud rasterizer focusing on block-based streaming, slot residency, and view-dependent culling. Built with C++ and OpenGL.
+An experimental out-of-core 3D point cloud rasterizer for interactive visualization of massive datasets, featuring block-based streaming, slot-based residency, view-dependent culling, and comparative benchmarking of in-core and out-of-core rendering. Built with C++ and OpenGL.
 
 ## Features
-- OpenGL-based real-time 3D point cloud (`.ply`) rendering pipeline with interactive camera controls
-- **Out-of-core** rendering with multi-threaded data streaming to support processing massive datasets exceeding available RAM
-- Spatial partitioning and view-dependent culling for both **in-core** and **out-of-core** rendering
-- LRU cache to reuse files during spatial partitioning
+- **Real-time 3D point cloud rasterization** using an OpenGL-based rendering pipeline with interactive camera control
+- **Out-of-core rendering architecture** for massive point clouds exceeding available RAM
+  - Multi-threaded, block-based data streaming
+  - Slot-based block residency to reduce per-frame buffer reallocation overhead
+  - Caching of lower-priority sub-blocks (sub-slots) to extend streaming efficiency
+- **Spatial partitioning and view-dependent block culling** for both in-core and out-of-core rendering
+- **LRU-based file cache** to minimize repeated file open/close operations during block partitioning
+- **Comparative benchmarking framework**
+  - In-core vs. multiple out-of-core rendering strategies
+  - Identical camera motion and controlled block capacity constraints
+- **Offline frame export** for qualitative evaluation and GIF generation
 - Custom vertex and fragment shader support
+
 
 ## News
 - (NEXT) Caching multi-threading synchronization improvements? LOD tests?
