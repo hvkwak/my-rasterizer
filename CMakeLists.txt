@@ -51,6 +51,17 @@ message(STATUS "GLM included at ${GLM_INCLUDE_DIR}")
 # Threading support for Queue class
 find_package(Threads REQUIRED)
 
+
+
+##############################################################################
+# STB
+# (place *before* GLFW since GLFW has an old copy of stb_image_write.h)
+##############################################################################
+set(STB_SOURCE_DIR "external/stb_image")
+include_directories(${STB_SOURCE_DIR})
+add_subdirectory(${STB_SOURCE_DIR})
+
+
 # GLFW is the window / context / input library.
 # On Ubuntu, install it with:
 #   sudo apt install libglfw3-dev
@@ -72,6 +83,7 @@ target_link_libraries(${PROJECT_NAME}
         OpenGL::GL
         glfw
         Threads::Threads
+        stb_image
 )
 
 # ---- Notes ----

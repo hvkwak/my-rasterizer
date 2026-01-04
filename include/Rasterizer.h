@@ -34,6 +34,7 @@ public:
             bool isTest_,
             bool isOOC_,
             bool isCache_,
+            bool isExport_,
             unsigned int window_width_,
             unsigned int window_height_,
             float z_near_,
@@ -90,9 +91,6 @@ private:
   static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
   static void window_focus_callback(GLFWwindow* window, int focused);
 
-  /** @brief Update FPS and frame statistics */
-  void updateInfo();
-
   // Slot management
   /** @brief Find slot index containing given block ID */
   bool findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<Slot>& slotsB, int blockID, int slotIdx);
@@ -116,6 +114,9 @@ private:
   int cacheHitsA = 0;
   int cacheHitsB = 0;
 
+  // image export
+  void saveFramePNG(const std::string& path, int w, int h);
+
   // performance check variables
   uint64_t vertexCount = 0;
   int visibleCount = 0;
@@ -126,6 +127,7 @@ private:
   int minVisibleCount = INT_MAX;
 
   /** @brief Set orbital camera pose for test mode */
+  glm::vec3 dir;
   void setOrbitCamera();
 
   // Frustum culling
@@ -177,14 +179,14 @@ private:
   float z_near;
   float z_far;
 
-  // timing to calculate FPS
-  float deltaTime = 0.0f; // time between current frame and last frame
-  float lastFrame = 0.0f;
-  bool isFPSInitialized = false;
-  float maxFPS = -FLT_MAX;
-  float minFPS = FLT_MAX;
-  float acc = 0.0f;
-  unsigned int frames = 0;
+  // Parameters for benchmarks
+  const int warmup = 60;
+  const int N = 600;
+  const float fixedDt = 1.0f / 60.0f;
+  double minFPS_N = std::numeric_limits<double>::infinity();
+  double maxFPS_N = 0.0;
+  double totalSeconds = 0.0;
+  int frameIdx = 0;
   float angularSpeed = 0.0f;// = glm::radians(10.0f); // 10.0 degrees/sec
   float distFactor = 0.0f;
 
@@ -196,6 +198,7 @@ private:
   bool isTest;
   bool isOOC;
   bool isCache;
+  bool isExport;
 
   // blocks / slots / cached blocks in slot
   std::vector<Block> blocks;

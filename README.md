@@ -1,37 +1,56 @@
 # My Rasterizer
 An experimental out-of-core 3D point cloud rasterizer focusing on block-based streaming, slot residency, and view-dependent culling. Built with C++ and OpenGL.
 
-## News
-- (NEXT) Caching synchronization improvements, LOD tests
-- (NEXT) GIF export
-- [2026-01-03] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
-- [2026-01-03] Implemented caching lower-priority sub-blocks(`subSlots`) to extend multi-threaded data streaming.
-- [2026-01-01] Implemented out-of-core rendering based on reserved block slots, reducing `BufferData()` overheads for every block per frame.
-- [2025-12-30] Implemented in-core rendering with view-dependent block culling.
-- [2025-12-29] Implemented view-dependent block culling.
-- [2025-12-28] Implemented out-of-core rendering for massive point clouds exceeding available RAM.
-  - Implemented spatial block partitioning with multi-threaded file I/O.
-  - Implemented LRU cache to reuse files during block partitioning, reducing file I/O overhead by minimizing repeated file open/close operations.
-- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.
-<!--
-Achieves __ FPS on the `Church` scene (67M points, in-core) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbit camera.
---->
-
-## Benchmarks
-This project is tested with `Church` scene (67M points) from `https://www.tanksandtemples.org/` on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 10°/sec orbital camera poses. Filtering empty blocks reduces blocks from 10*10*10 to 514 blocks. Max/Min visible blocks: 198 / 90. Test #2 and #3 are organized with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points/514). 5 Workers were enabled for out-of-core multi-threaded data loading.
-
-| Nr. | slots |  subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                            |
-| :-: | :---: | :-------: | :-----------: | :-----------------: | :-------------------- | :---------------------------------------------- |
-|  #1 |     — |         — | 57.0965 / 25.5717 |               — | `--test`               | Baseline (In-Core).              |
-|  #2 |   154 | 77 *(unused)* | 23.3062 / 12.9134 |           143 / 0 | `--ooc --test`         | Out-of-core with Slots. Caching subSlots unused.     |
-|  #3 |   154 |            77 | 26.6165 / 13.8124 |           141 / 0 | `--ooc --test --cache` | Out-of-core with Slots + Slot Caching with subSlots. |
-
 ## Features
 - OpenGL-based real-time 3D point cloud (`.ply`) rendering pipeline with interactive camera controls
 - **Out-of-core** rendering with multi-threaded data streaming to support processing massive datasets exceeding available RAM
 - Spatial partitioning and view-dependent culling for both **in-core** and **out-of-core** rendering
 - LRU cache to reuse files during spatial partitioning
 - Custom vertex and fragment shader support
+
+## News
+- (NEXT) Caching multi-threading synchronization improvements? LOD tests?
+- [2026-01-04] Added PNG frame export to support GIF generation
+- [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
+- [2026-01-03] Implemented caching lower-priority sub-blocks (`subSlots`) to extend multi-threaded data streaming.
+- [2026-01-01] Implemented out-of-core rendering based on reserved block slots, reducing `BufferData()` overhead for every block per frame.
+- [2025-12-30] Implemented in-core rendering with view-dependent block culling.
+- [2025-12-29] Implemented view-dependent block culling.
+- [2025-12-28] Implemented out-of-core rendering for massive point clouds exceeding available RAM.
+  - Implemented spatial block partitioning with multi-threaded file I/O.
+  - Implemented LRU cache to reuse files during block partitioning, reducing file I/O overhead by minimizing repeated file open/close operations.
+- [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.
+
+## Benchmarks
+This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 10*10*10 to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are organized with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming.
+
+| Nr. | slots | subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
+| :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
+|  #1 |     — |        — | 87.63 / 25.89 |                   — | `--test`               | In-core with block slots. (Baseline)                    |
+|  #2 |   154 |        — | 30.68 / 10.79 |             152 / 0 | `--ooc --test`         | Out-of-core with block slots. No subslot Caching.       |
+|  #3 |   154 |       77 | 32.81 / 9.22  |             147 / 0 | `--ooc --test --cache` | Out-of-core with block slots and cached block subslots. |
+
+## Outputs
+Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-Core** (left) and **Out-of-core** (right).
+<table>
+  <tr>
+    <th colspan="2" align="left">Church Scene Rasterization In-core and Out-of-core</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="outputs/church_IC.gif">
+        <img src="outputs/church_IC.gif" alt="In-core" width="360">
+      </a><br>
+      <sub>In-core</sub>
+    </td>
+    <td align="center">
+      <a href="outputs/church_OOC.gif">
+        <img src="outputs/church_OOC.gif" alt="OOC" width="360">
+      </a><br>
+      <sub>Out-of-core</sub>
+    </td>
+  </tr>
+</table>
 
 ## Prerequisites
 - CMake 3.20 or higher
@@ -46,7 +65,7 @@ sudo apt install cmake build-essential libgl1-mesa-dev libglfw3-dev libglm-dev
 ```
 
 ## Datasets
-This Rasterizer is compatible with 3D point cloud datasets in `.ply` format. Datasets should be stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from `https://www.tanksandtemples.org/`.
+This Rasterizer is compatible with 3D point cloud datasets in `.ply` format. Datasets should be stored in the `data` directory. This implementation is tested with the well-known public 3D point cloud datasets (ground truth `.ply` files) from [Tanks and Temples](https://www.tanksandtemples.org/).
 
 ## Build
 1. Clone the repository:
@@ -71,7 +90,7 @@ Run the program in the `build` directory:
 ```bash
 ./main
 ```
-This will load the default model (e.g. `../data/Barn.ply`) with default shaders.
+This will load the default model (e.g., `../data/Church.ply`) with default shaders.
 
 ### Command Line Arguments
 You can specify custom files via command line arguments:
@@ -82,24 +101,34 @@ You can specify custom files via command line arguments:
 
 **Available Options:**
 - `--test`: Run in test mode (orbital camera pose)
-- `--ooc`: Enable out-of-core rendering mode (for large datasets)
+- `--ooc`: Enable out-of-core rendering mode
+- `--cache`: (Must be combined with `--ooc`) Enable out-of-core rendering mode with sub-slots cache.
+- `--export`: Captures every rendered frame as a `.png` image in the `outputs/` directory.
 - `*.ply`: Specify a PLY model file
 - `*.vert`: Specify a custom vertex shader
 - `*.frag`: Specify a custom fragment shader
 
 **Examples:**
-
 ```bash
-# In-core rendering (default)
-./main ../data/Barn.ply ../src/shader/shader.vert ../src/shader/shader.frag
+# In-core rendering
+./main --test
 
-# Out-of-core rendering for large datasets
-./main --ooc ../data/Church.ply
+# Out-of-core rendering for large datasets in test mode
+./main --test --ooc
 ```
 
 ### Camera Controls
-- **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw/Pitch Control with J, L, I, K)
+- **Normal Mode**: Navigate using standard controls (Camera movements with Q, W, A, S, Z, X. Yaw and pitch control with J, L, I, K)
 - **Test Mode**: Enable orbital camera poses (use argument `--test` for this mode)
+
+### Exporting GIFs
+When `.png` files are generated, run the following, e.g.:
+``` bash
+ffmpeg -framerate 60 -i frame_%05d.png \
+  -vf "fps=8,scale=360:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+  ../out_OOC.gif
+```
+to export a `.gif` file for a demo. 
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

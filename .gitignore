@@ -1,5 +1,6 @@
 data/*.bin
 data/*.ply
+outputs/*.png
 build/*
 .cache/*
 *.org

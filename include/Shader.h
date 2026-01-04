@@ -82,6 +82,7 @@ public:
         glDeleteShader(fragment);
     }
 
+    // Commented out: kept in Rasterizer::~Rasterizer().
     // ~Shader()
     // {
     //     glDeleteProgram(ID);

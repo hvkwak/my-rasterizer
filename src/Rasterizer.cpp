@@ -7,11 +7,14 @@
 //=============================================================================
 
 #include "Rasterizer.h"
+#include <stb_image_write.h>
+#include <stb_image.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "DataManager.h"
 #include "Shader.h"
 #include "Utils.h"
+#include "Clock.h"
 #include <iostream>
 #include <cstdio>
 #include <cfloat>
@@ -50,6 +53,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
                       bool isTest_,
                       bool isOOC_,
                       bool isCache_,
+                      bool isExport_,
                       unsigned int window_width_,
                       unsigned int window_height_,
                       float z_near_,
@@ -65,6 +69,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   isTest = isTest_;
   isOOC = isOOC_;
   isCache = isCache_;
+  isExport = isExport_;
   window_width = window_width_;
   window_height = window_height_;
   z_near = z_near_;
@@ -614,8 +619,8 @@ bool Rasterizer::findBlockInSlot(std::vector<Slot>& slotsA, int blockID) {
  */
 void Rasterizer::setOrbitCamera(){
   // test mode: orbit camera around scene center
-  float theta = angularSpeed * deltaTime;
-  glm::vec3 dir = camera_position - center;
+  float theta = angularSpeed * (fixedDt);
+  dir = camera_position - center;
   camera_position = center + (Rz(theta) * dir);
   camera.changePose(camera_position, center);
 }
@@ -627,7 +632,7 @@ void Rasterizer::render(){
 
   while (!glfwWindowShouldClose(window)) {
 
-    updateInfo();
+    auto t0 = steady_clock_t::now();
     processInput();
 
     if (isTest){
@@ -637,9 +642,8 @@ void Rasterizer::render(){
     glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    shader->use();
-
     view = camera.GetViewMatrix();
+    shader->use();
     shader->setMat4("View", view);
 
     // Culling
@@ -647,70 +651,75 @@ void Rasterizer::render(){
 
     // load and draw blocks
     if (isOOC) {
-
-      // Out-of-core
       loadBlocksOOC();
       drawBlocksOOC();
-
     } else {
-
-      // In-Core. Points are already there.
       drawBlocks();
-
     }
 
     // Swap buffers & poll events
     glfwSwapBuffers(window);
     glfwPollEvents();
+
+    // Export
+    if (isExport) {
+      char buf[256];
+      std::snprintf(buf, sizeof(buf), "%s/frame_%05d.png", "../outputs", frameIdx);
+      saveFramePNG(buf, window_width, window_height);
+    }
+
+    auto t1 = steady_clock_t::now();
+    frameIdx++;
+
+    if (isTest && frameIdx >= warmup) {
+      // update stats for benchmark
+      double dt = seconds(t0, t1);
+      totalSeconds += dt;
+      double fps = (dt > 0.0) ? (1.0 / dt) : 0.0;
+      maxFPS_N = std::max(maxFPS_N, fps);
+      minFPS_N = std::min(minFPS_N, fps);
+      maxVisibleCount = std::max(maxVisibleCount, visibleCount);
+      minVisibleCount = std::min(minVisibleCount, visibleCount);
+      maxCacheMiss = std::max(maxCacheMiss, cacheMiss);
+      minCacheMiss = std::min(minCacheMiss, cacheMiss);
+
+      // if (frameIdx % 10 == 0) {
+      //   std::cout << "Frame " << frameIdx << ": dt=" << dt
+      //             << " sec, fps=" << (1.0 / dt) << std::endl;
+      // }
+
+      if (frameIdx % 10 == 1) {
+        // window title update every frame disturbs too much.
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f | visibleCount: %d | Cache Miss: %d", fps, visibleCount, cacheMiss);
+        glfwSetWindowTitle(window, buf);
+      }
+    }
+
+    // break?
+    if (frameIdx - warmup + 1 >= N){
+      glfwSetWindowShouldClose(window, true);
+      break; // done
+    }
+  }
+
+  // print out stats
+  if (isTest) {
+    double avgFPS = N / totalSeconds;
+    std::cout << "Bench N=" << N << " warmup= " << warmup << "\n";
+    std::cout << "Avg FPS: " << avgFPS << "\n";
+    std::cout << "Max FPS: " << maxFPS_N << "\n";
+    std::cout << "Min FPS: " << minFPS_N << "\n";
+    std::cout << "Max visibleCount: " << maxVisibleCount << "\n";
+    std::cout << "Min visibleCount: " << minVisibleCount << "\n";
+    std::cout << "Max cacheMiss: " << maxCacheMiss << "\n";
+    std::cout << "Min cacheMiss: " << minCacheMiss << "\n";
   }
 
   // quit
   if (isOOC) dataManager.quit();
-  std::cout << "Max FPS: " << maxFPS << std::endl;
-  std::cout << "Min FPS: " << minFPS << std::endl;
-  std::cout << "Max visibleCount: " << maxVisibleCount << std::endl;
-  std::cout << "Min visibleCount: " << minVisibleCount << std::endl;
-  std::cout << "Max cacheMiss: " << maxCacheMiss << std::endl;
-  std::cout << "Min cacheMiss: " << minCacheMiss << std::endl;
+
 }
-
-
-/**
- * @brief Update FPS and frame statistics
- */
-void Rasterizer::updateInfo(){
-  float fps = 0.0f;
-  float currentFrame = static_cast<float>(glfwGetTime());
-  if (!isFPSInitialized){
-    lastFrame = currentFrame;
-    isFPSInitialized = true;
-    return;
-  }
-  deltaTime = currentFrame - lastFrame;
-  lastFrame = currentFrame;
-
-  acc += deltaTime;
-  frames++;
-
-  if (acc > 1.0){
-    fps = frames / acc;
-
-    // benchmark FPS, visibleCount
-    if (fps > maxFPS) maxFPS = fps;
-    if (fps < minFPS) minFPS = fps;
-    if (visibleCount > maxVisibleCount) maxVisibleCount = visibleCount;
-    if (visibleCount < minVisibleCount) minVisibleCount = visibleCount;
-    if (cacheMiss > maxCacheMiss) maxCacheMiss = cacheMiss;
-    if (cacheMiss < minCacheMiss) minCacheMiss = cacheMiss;
-
-    char buf[128];
-    std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f | visibleCount: %d | Cache Miss: %d", fps, visibleCount, cacheMiss);
-    glfwSetWindowTitle(window, buf);
-    acc = 0.0f;
-    frames = 0;
-  }
-}
-
 
 /**
  * @brief Process keyboard input
@@ -724,16 +733,16 @@ void Rasterizer::processInput() {
   if (isTest) return;
 
   // keys (continuous)
-  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.ProcessKeyboard(Camera::FORWARD, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.ProcessKeyboard(Camera::BACKWARD, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.ProcessKeyboard(Camera::LEFT, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.ProcessKeyboard(Camera::RIGHT, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) camera.ProcessKeyboard(Camera::UP, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) camera.ProcessKeyboard(Camera::DOWN, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_MINUS, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_PLUS, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_MINUS, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_PLUS, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.ProcessKeyboard(Camera::FORWARD, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.ProcessKeyboard(Camera::BACKWARD, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.ProcessKeyboard(Camera::LEFT, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.ProcessKeyboard(Camera::RIGHT, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) camera.ProcessKeyboard(Camera::UP, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) camera.ProcessKeyboard(Camera::DOWN, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_MINUS, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) camera.ProcessKeyboard(Camera::YAW_PLUS, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_MINUS, fixedDt);
+  if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) camera.ProcessKeyboard(Camera::PITCH_PLUS, fixedDt);
 
 }
 
@@ -818,4 +827,21 @@ void Rasterizer::framebuffer_size_callback(GLFWwindow *window, int width, int he
   // make sure the viewport matches the new window dimensions; note that width
   // and height will be significantly larger than specified on retina displays.
   glViewport(0, 0, width, height);
+}
+
+void Rasterizer::saveFramePNG(const std::string& path, int w, int h) {
+  std::vector<unsigned char> rgba(w * h * 4);
+
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadBuffer(GL_BACK); // capture what you're about to swap
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+
+  // Flip vertically (OpenGL origin is bottom-left)
+  for (int y = 0; y < h / 2; ++y) {
+    int top = y * w * 4;
+    int bot = (h - 1 - y) * w * 4;
+    for (int x = 0; x < w * 4; ++x) std::swap(rgba[top + x], rgba[bot + x]);
+  }
+
+  stbi_write_png(path.c_str(), w, h, 4, rgba.data(), w * 4);
 }
