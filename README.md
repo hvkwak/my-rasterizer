@@ -35,7 +35,7 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 | Nr. | slots | subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
 |  #1 |     — |        — | 87.63 / 25.89 |                   — | `--test`               | In-core. (Baseline)                    |
-|  #2 |   154 |        — | 30.68 / 10.79 |             152 / 0 | `--ooc --test`         | Out-of-core with block slots. No subslot Caching.       |
+|  #2 |   154 |        — | 30.68 / 10.79 |             152 / 0 | `--ooc --test`         | Out-of-core with block slots. No sub-slot caching.       |
 |  #3 |   154 |       77 | 32.81 / 9.22  |             147 / 0 | `--ooc --test --cache` | Out-of-core with block slots and cached block subslots. |
 
 ## Outputs
