@@ -30,7 +30,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.
 
 ## Benchmarks
-This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 10x10x10 to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are organized with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming.
+This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 1000(10x10x10) to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are organized with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming.
 
 | Nr. | slots | subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
