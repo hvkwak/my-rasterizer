@@ -10,7 +10,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - **Spatial partitioning and view-dependent block culling** for both in-core and out-of-core rendering
 - **LRU-based file cache** to minimize repeated file open/close operations during block partitioning
 - **Comparative benchmarking framework**
-  - In-core vs. multiple out-of-core rendering strategies
+  - In-core and out-of-core rendering strategies
   - Identical camera motion and controlled block capacity constraints
 - **Offline frame export** for qualitative evaluation and GIF generation
 - Custom vertex and fragment shader support
