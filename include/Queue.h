@@ -93,3 +93,11 @@ private:
 };
 
 #endif // QUEUE_H
+
+// bool try_pop(T& out) {
+//   std::lock_guard<std::mutex> lk(m_);
+//   if (q_.empty()) return false;
+//   out = std::move(q_.front());
+//   q_.pop();
+//   return true;
+// }

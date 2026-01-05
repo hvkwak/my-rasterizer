@@ -466,6 +466,8 @@ void Rasterizer::loadBlocksOOC(){
     loadBlockCount++;
     cacheMiss++;
   }
+  std::cout << "cacheMiss / limit: " << cacheMiss << " / " << limit << "\n";
+
   // std::cout << "cacheHitsA(/num_slots) | cacheeHitsB(/num_subSlots) this frame: "
   //           << cacheHitsA << "(/" << num_slots << ") | "
   //           << cacheHitsB << "(/" << num_subSlots << ") \n";

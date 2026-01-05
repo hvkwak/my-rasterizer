@@ -17,7 +17,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 
 ## News
-- (NEXT) Caching multi-threading synchronization improvements? LOD tests?
+- (NEXT) bottlenecks? cacheMiss is high. multi-threading improvements? LOD tests?
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
 - [2026-01-03] Implemented caching lower-priority sub-blocks (`subSlots`) to extend multi-threaded data streaming.
