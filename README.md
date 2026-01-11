@@ -18,7 +18,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 ## News
 - (NEXT) more bottlenecks? multi-threading improvements? LOD tests?
-- [2026-01-11] Debugged the high max cacheMiss problem, and sorting blocks takes place now based on the distance from block center to camera frustum "center" (`= 0.5*(z_near + z_far)`). It reduces the (max) cacheMiss from 152 to 108 for no block subslot caching mode and from 147 to 85 for block subslots caching mode. This improves (max) FPS from 30.68 to 34.26, from 32.81 to 36.72 respectively, at the cost of visible but nearby(to the camera) blocks being not rendered sometimes.
+- [2026-01-11] Debugged the high max `cacheMiss` problem, and sorting blocks takes place now based on the distance from block center to camera frustum "center" (`(0.0, 0.0, -0.5*(z_near + z_far))`). It reduces the (max) `cacheMiss` from 152 to 108 for no block subslot caching mode and from 147 to 85 for block subslots caching mode. This improves (max) FPS from 30.68 to 34.26, from 32.81 to 36.72 respectively, at the cost of visible but nearby(to the camera) blocks being not rendered sometimes.
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
 - [2026-01-03] Implemented caching lower-priority sub-blocks (`subSlots`) to extend multi-threaded data streaming.
@@ -40,21 +40,21 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 |  #3 |   154 |       77 | 36.72 / 13.15 |              85 / 0 | `--ooc --test --cache` | Out-of-core with block slots and cached block subslots. |
 
 ## Outputs
-Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-Core** (left) and **Out-of-core** (right).
+Side-by-side GIFs of `Church` rasterized with identical camera poses: **Out-of-core** (left) and **In-Core** (right).
 <table>
   <tr>
     <th colspan="2" align="left">Church Scene Rasterization In-core and Out-of-core</th>
   </tr>
   <tr>
     <td align="center">
-      <a href="outputs/church_IC.gif">
-        <img src="outputs/church_IC.gif" alt="In-core" width="360">
+      <a href="outputs/church_OOC.gif">
+        <img src="outputs/church_OOC.gif" alt="Out-of-core" width="360">
       </a><br>
       <sub>In-core</sub>
     </td>
     <td align="center">
-      <a href="outputs/church_OOC.gif">
-        <img src="outputs/church_OOC.gif" alt="OOC" width="360">
+      <a href="outputs/church_IC.gif">
+        <img src="outputs/church_IC.gif" alt="In-core" width="360">
       </a><br>
       <sub>Out-of-core</sub>
     </td>
