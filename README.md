@@ -18,7 +18,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 ## News
 - (NEXT) more bottlenecks? multi-threading improvements? LOD tests?
-- [2026-01-11] Debugged the high max cacheMiss problem, and sorting blocks takes place now based on the distance from block center to camera frustum "center" (`= 0.5*(z_near + z_far)`). It reduces the (max) cacheMiss from 152 to 108 for no block subslot caching mode and from 147 to 85 for block subslots caching mode. This improves (max) FPS from 30.68 to 34.26, from 32.81 to 36.72 respectively, at the expense of rendering quality.
+- [2026-01-11] Debugged the high max cacheMiss problem, and sorting blocks takes place now based on the distance from block center to camera frustum "center" (`= 0.5*(z_near + z_far)`). It reduces the (max) cacheMiss from 152 to 108 for no block subslot caching mode and from 147 to 85 for block subslots caching mode. This improves (max) FPS from 30.68 to 34.26, from 32.81 to 36.72 respectively, at the cost of visible but nearby(to the camera) blocks being not rendered sometimes.
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
 - [2026-01-03] Implemented caching lower-priority sub-blocks (`subSlots`) to extend multi-threaded data streaming.
