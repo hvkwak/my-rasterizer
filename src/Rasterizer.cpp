@@ -437,8 +437,6 @@ void Rasterizer::loadBlocksOOC(){
   std::sort(blocks.begin(), blocks.end(),
             [](Block& a, Block& b){
               return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToFrustumCenter < b.distanceToFrustumCenter;
-//            return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToCameraCenter < b.distanceToCameraCenter;
-//            return a.distanceToFrustumCenter < b.distanceToFrustumCenter;
             }
           );
 
