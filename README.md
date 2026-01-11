@@ -50,13 +50,13 @@ Side-by-side GIFs of `Church` rasterized with identical camera poses: **Out-of-c
       <a href="outputs/church_OOC.gif">
         <img src="outputs/church_OOC.gif" alt="Out-of-core" width="360">
       </a><br>
-      <sub>In-core</sub>
+      <sub>Out-of-core</sub>
     </td>
     <td align="center">
       <a href="outputs/church_IC.gif">
         <img src="outputs/church_IC.gif" alt="In-core" width="360">
       </a><br>
-      <sub>Out-of-core</sub>
+      <sub>In-core</sub>
     </td>
   </tr>
 </table>
