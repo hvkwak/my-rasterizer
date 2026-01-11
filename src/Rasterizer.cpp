@@ -394,6 +394,12 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
     bb_max = glm::max(bb_max, p);
   }
 
+  // compute distance for ALL blocks (needed for sorting)
+  // Note: in view space, camera looks down -Z, so frustum center is at negative Z
+  glm::vec3 bb_center = 0.5f * (bb_min + bb_max);
+  block.distanceToCameraCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, 0.0f));
+  block.distanceToFrustumCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, -0.5f*(z_far+z_near)));
+
   for (const Plane &plane : planes) {
     // Positive vertex: the AABB corner that maximizes dot(n, x)
     glm::vec3 p;
@@ -408,10 +414,6 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
       return;
     }
   }
-  // add distance to camera center for visible blocks
-  glm::vec3 bb_center = 0.5f * (bb_min + bb_max);
-  block.distanceToCameraCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, 0.0f));
-  block.distanceToFrustumCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, 0.5f*(z_far+z_near)));
 }
 
 void Rasterizer::loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots) {
@@ -434,7 +436,9 @@ void Rasterizer::loadBlocksOOC(){
   // TODO: check if this sort helps LOD
   std::sort(blocks.begin(), blocks.end(),
             [](Block& a, Block& b){
-              return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToCameraCenter < b.distanceToCameraCenter;
+              return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToFrustumCenter < b.distanceToFrustumCenter;
+//            return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToCameraCenter < b.distanceToCameraCenter;
+//            return a.distanceToFrustumCenter < b.distanceToFrustumCenter;
             }
           );
 
@@ -460,14 +464,13 @@ void Rasterizer::loadBlocksOOC(){
       };
     }
 
-    // Not found. OOC
+    // Not found.
     int count = std::min(blocks[i].count, num_points_per_slot);
     loadBlock(blockID, i, count, false);
     loadBlockCount++;
     cacheMiss++;
   }
-  std::cout << "cacheMiss / limit: " << cacheMiss << " / " << limit << "\n";
-
+  // std::cout << "cacheMiss / limit: " << cacheMiss << " / " << limit << "\n";
   // std::cout << "cacheHitsA(/num_slots) | cacheeHitsB(/num_subSlots) this frame: "
   //           << cacheHitsA << "(/" << num_slots << ") | "
   //           << cacheHitsB << "(/" << num_subSlots << ") \n";
@@ -483,7 +486,7 @@ void Rasterizer::loadBlocksOOC(){
   //           << "\n";
 
   // reset cache
-  if (isCache && (!cacheInitialized || cacheHitsB > 4)){
+  if (isCache && (!cacheInitialized || cacheHitsB > 5)){
     // sort blocks: invisible, but near the frustum center coming front
     std::sort(blocks.begin(), blocks.end(), [](Block &a, Block &b) {
       return a.isVisible != b.isVisible ? a.isVisible < b.isVisible : a.distanceToFrustumCenter < b.distanceToFrustumCenter;
@@ -525,7 +528,7 @@ void Rasterizer::drawBlocksOOC()
   for (int i = 0; i < num_slots; i++){
     if (slots[i].status != LOADED) {
       continue;
-    };
+    }
     // bind current block VAO, VBO
     glBindVertexArray(slots[i].vao);
     glBindBuffer(GL_ARRAY_BUFFER, slots[i].vbo);
@@ -587,7 +590,7 @@ void Rasterizer::drawBlocks(){
  * @brief Find slot index containing given block ID
  * @param blockID: Block ID to search for
  * @param idx: target index in member variable slots
- * @param slotsA slotsB: slots for moving points from slotA to slotB
+ * @param slotsA slotsB: slots for moving points. Moving from slotA to slotB!
  */
 bool Rasterizer::findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<Slot>& slotsB, int blockID, int slotIdx) {
   for (int i = 0; i < slotsA.size(); i++) {

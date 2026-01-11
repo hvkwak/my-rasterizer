@@ -17,7 +17,8 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 
 ## News
-- (NEXT) bottlenecks? Max cacheMiss is still high. multi-threading improvements? LOD tests?
+- (NEXT) bottlenecks? multi-threading improvements? LOD tests?
+- [2026-01-11] Debugged the high max cacheMiss problem, and sorting blocks takes place now based on the distance from block center to camera frustum "center". It reduces the `cacheMiss Max` from 152 to 108 for no sub-slot caching mode and from 147 to 85 for cached block subslots mode. This improves (Max) FPS from 30.68 to 34.26, from 32.81 to 36.72 respectively, at the expense of rendering quality.
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
 - [2026-01-03] Implemented caching lower-priority sub-blocks (`subSlots`) to extend multi-threaded data streaming.
@@ -35,8 +36,8 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 | Nr. | slots | subSlots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
 |  #1 |     — |        — | 87.63 / 25.89 |                   — | `--test`               | In-core. (Baseline)                    |
-|  #2 |   154 |        — | 30.68 / 10.79 |             152 / 0 | `--ooc --test`         | Out-of-core with block slots. No sub-slot caching.       |
-|  #3 |   154 |       77 | 32.81 / 9.22  |             147 / 0 | `--ooc --test --cache` | Out-of-core with block slots and cached block subslots. |
+|  #2 |   154 |        — | 34.26 / 12.81 |             108 / 0 | `--ooc --test`         | Out-of-core with block slots. No sub-slot caching.       |
+|  #3 |   154 |       77 | 36.72 / 13.15 |              85 / 0 | `--ooc --test --cache` | Out-of-core with block slots and cached block subslots. |
 
 ## Outputs
 Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-Core** (left) and **Out-of-core** (right).
