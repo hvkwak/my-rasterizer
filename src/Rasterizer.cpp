@@ -86,7 +86,7 @@ bool Rasterizer::init(const std::filesystem::path& plyPath_,
   if (!setupRasterizer()) return false;
   if (!setupCameraPose()) return false;
   if (!setupCallbacks()) return false;
-  if (!setupShader()) return false;
+  if (!setupShader()) return false; // before setupCulling()
   if (!setupCulling()) return false;
   if (!setupBufferWrapper()) return false;
   return true;
@@ -307,14 +307,16 @@ bool Rasterizer::setupSlots() {
   std::cout << "num_subSlots: " << num_subSlots << "\n";
   std::cout << "num_points_per_slot: " << num_points_per_slot << "\n";
   slots.resize(num_slots);
+  vao.resize(num_slots);
+  vbo.resize(num_slots);
   subSlots.resize(num_subSlots);
 
   for (int i = 0; i < num_slots; ++i) {
-    glGenVertexArrays(1, &slots[i].vao);
-    glGenBuffers(1, &slots[i].vbo);
+    glGenVertexArrays(1, &vao[i]);
+    glGenBuffers(1, &vbo[i]);
 
-    glBindVertexArray(slots[i].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, slots[i].vbo);
+    glBindVertexArray(vao[i]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
 
     // set the capacity per slot, we use glBufferSubData
     glBufferData(GL_ARRAY_BUFFER,
@@ -371,8 +373,6 @@ void Rasterizer::cullBlocks(){
  */
 void Rasterizer::aabbIntersectsFrustum(Block & block) {
 
-  block.isVisible = true;
-
   // Generate all 8 corners of the AABB in world space
   glm::vec3 corners[8] = {
       glm::vec3(block.bb_min.x, block.bb_min.y, block.bb_min.z),
@@ -400,20 +400,21 @@ void Rasterizer::aabbIntersectsFrustum(Block & block) {
   block.distanceToCameraCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, 0.0f));
   block.distanceToFrustumCenter = glm::distance(bb_center, glm::vec3(0.0f, 0.0f, -0.5f*(z_far+z_near)));
 
+  float minDist = FLT_MAX;
   for (const Plane &plane : planes) {
     // Positive vertex: the AABB corner that maximizes dot(n, x)
     glm::vec3 p;
     p.x = (plane.n.x >= 0.0f) ? bb_max.x : bb_min.x;
     p.y = (plane.n.y >= 0.0f) ? bb_max.y : bb_min.y;
     p.z = (plane.n.z >= 0.0f) ? bb_max.z : bb_min.z;
-
-    // If even the best-case vertex is outside, the whole box is outside
-    if (glm::dot(plane.n, p) + plane.d < 0.0f) {
-      block.isVisible = false;
-      visibleCount--;
-      return;
-    }
+    float dist = glm::dot(plane.n, p) + plane.d;
+    minDist = std::min(dist, minDist);
   }
+
+  // Decide classification once
+  block.distanceToPlaneMin = minDist;
+  block.isVisible = (minDist >= 0.0f);
+  visibleCount -= !block.isVisible;
 }
 
 void Rasterizer::loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots) {
@@ -433,15 +434,21 @@ void Rasterizer::loadBlock(const int& blockID, const int& slotIdx, const int& co
 void Rasterizer::loadBlocksOOC(){
 
   // sort blocks: visible and near to camera center blocks first
-  // TODO: check if this sort helps LOD
   std::sort(blocks.begin(), blocks.end(),
-            [](Block& a, Block& b){
-              return a.isVisible != b.isVisible ? a.isVisible > b.isVisible : a.distanceToFrustumCenter < b.distanceToFrustumCenter;
+            [](const Block& a, const Block& b){
+              if (a.isVisible != b.isVisible) {
+                return a.isVisible > b.isVisible;
+              }
+              if (a.isVisible) {
+                return a.distanceToCameraCenter < b.distanceToCameraCenter;
+              } else{
+                return a.distanceToPlaneMin > b.distanceToPlaneMin;
+              }
             }
           );
 
   // load blocks to slots
-  int limit = std::min<int>(num_slots, blocks.size());
+  int limit = std::min<int>(num_slots, visibleCount);
   loadBlockCount = 0;
   cacheMiss = 0;
   cacheHitsA = 0;
@@ -449,26 +456,26 @@ void Rasterizer::loadBlocksOOC(){
   for (int i = 0; i < limit; i++) {
     int blockID = blocks[i].blockID;
     // see if it's already in slots
-    if (findSlotIndexByBlockId(slots, slots, blockID, i)) {
+    if (updateSlotByBlockID(slots, slots, blockID, i)) {
       cacheHitsA++;
       continue;
     }
 
     // Cache(subSlot) available. see if the block is there.
     if (isCache) {
-      if (findSlotIndexByBlockId(subSlots, slots, blockID, i)) {
+      if (updateSlotByBlockID(subSlots, slots, blockID, i)) {
         cacheHitsB++;
         continue;
       };
     }
 
-    // Not found.
+    // Not found
     int count = std::min(blocks[i].count, num_points_per_slot);
     loadBlock(blockID, i, count, false);
     loadBlockCount++;
     cacheMiss++;
   }
-  // std::cout << "cacheMiss / limit: " << cacheMiss << " / " << limit << "\n";
+  // std::cout << "cacheMiss: " << cacheMiss << "  " << "limit: " << limit << " " << "visibleCount: " << visibleCount << "\n";
   // std::cout << "cacheHitsA(/num_slots) | cacheeHitsB(/num_subSlots) this frame: "
   //           << cacheHitsA << "(/" << num_slots << ") | "
   //           << cacheHitsB << "(/" << num_subSlots << ") \n";
@@ -483,30 +490,22 @@ void Rasterizer::loadBlocksOOC(){
   // std::cout << "subSlots: nonEmpty=" << subNonEmpty << " loaded=" << subLoaded
   //           << "\n";
 
-  // reset cache
-  if (isCache && (!cacheInitialized || cacheHitsB > 5)){
-    // sort blocks: invisible, but near the frustum center coming front
-    std::sort(blocks.begin(), blocks.end(), [](Block &a, Block &b) {
-      return a.isVisible != b.isVisible ? a.isVisible < b.isVisible : a.distanceToFrustumCenter < b.distanceToFrustumCenter;
-    });
-
+  // initialize cache and LRU update it
+  if (isCache && !cacheInitialized){
     int i = 0;
-    int blockIdx = 0;
+    int blockIdx = limit;
     while (i < num_subSlots && blockIdx < blocks.size()) {
       int blockID = blocks[blockIdx].blockID;
-
-      if (findBlockInSlot(slots, blockID)) {
+      if (isBlockInSlot(slots, blockID)) {
         blockIdx++;
         continue;
       }
-
       // If it's already in subSlots, reorder it into position i and ADVANCE i.
-      if (findSlotIndexByBlockId(subSlots, subSlots, blockID, i)) {
+      if (updateSlotByBlockID(subSlots, subSlots, blockID, i)) {
         i++;
         blockIdx++;
         continue;
       }
-
       int count = std::min(blocks[blockIdx].count, num_points_per_slot);
       loadBlock(blockID, i, count, true);
       loadBlockCount++;
@@ -523,13 +522,13 @@ void Rasterizer::loadBlocksOOC(){
 void Rasterizer::drawBlocksOOC()
 {
   // draw existing slots first.
-  for (int i = 0; i < num_slots; i++){
+  for (int i = 0; i < num_slots; i++) {
     if (slots[i].status != LOADED) {
       continue;
     }
     // bind current block VAO, VBO
-    glBindVertexArray(slots[i].vao);
-    glBindBuffer(GL_ARRAY_BUFFER, slots[i].vbo);
+    glBindVertexArray(vao[i]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
     glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
 
     // Draw points
@@ -551,8 +550,8 @@ void Rasterizer::drawBlocksOOC()
       slots[r.slotIdx].points = std::move(r.points);
 
       // bind current block VAO, VBO
-      glBindVertexArray(slots[r.slotIdx].vao);
-      glBindBuffer(GL_ARRAY_BUFFER, slots[r.slotIdx].vbo);
+      glBindVertexArray(vao[r.slotIdx]);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo[r.slotIdx]);
       glBufferSubData(GL_ARRAY_BUFFER, 0,
                       slots[r.slotIdx].count * sizeof(Point),
                       slots[r.slotIdx].points.data());
@@ -585,20 +584,26 @@ void Rasterizer::drawBlocks(){
 }
 
 /**
- * @brief Find slot index containing given block ID
- * @param blockID: Block ID to search for
- * @param idx: target index in member variable slots
- * @param slotsA slotsB: slots for moving points. Moving from slotA to slotB!
+ * @brief Swaps a specific block from Source to Target, pushing the displaced Target slot to the front of Source.
+ * @param slotsSource: The list to search in (e.g., subslots). Receives the displaced slot at the front.
+ * @param slotsTarget: The destination list (e.g., slots).
+ * @param blockID: ID to search for in slotsSource.
+ * @param slotIdx: The specific index in slotsTarget to perform the swap.
  */
-bool Rasterizer::findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<Slot>& slotsB, int blockID, int slotIdx) {
-  for (int i = 0; i < slotsA.size(); i++) {
-    if (blockID == slotsA[i].blockID) {
-      // blockID found
-      if (i != slotIdx || &slotsA != &slotsB){
-        std::swap(slotsA[i].points, slotsB[slotIdx].points);
-        std::swap(slotsA[i].status, slotsB[slotIdx].status);
-        std::swap(slotsA[i].blockID, slotsB[slotIdx].blockID);
-        std::swap(slotsA[i].count, slotsB[slotIdx].count);
+bool Rasterizer::updateSlotByBlockID(std::vector<Slot>& slotsSource, std::vector<Slot>& slotsTarget, int blockID, int slotIdx) {
+  for (int i = 0; i < slotsSource.size(); i++) {
+    if (slotsSource[i].blockID == blockID) {
+      if (&slotsSource == &slotsTarget) {
+        // slots->slots or subslots -> subslots
+        std::swap(slotsSource[i], slotsSource[slotIdx]);
+      }
+      else {
+        // subslots -> slots
+        // LRU update subslots
+        std::swap(slotsSource[i], slotsTarget[slotIdx]);
+        Slot oldTargetData = std::move(slotsSource[i]);
+        slotsSource.erase(slotsSource.begin() + i);
+        slotsSource.insert(slotsSource.begin(), std::move(oldTargetData));
       }
       return true;
     }
@@ -606,7 +611,7 @@ bool Rasterizer::findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<S
   return false;
 }
 
-bool Rasterizer::findBlockInSlot(std::vector<Slot>& slotsA, int blockID) {
+bool Rasterizer::isBlockInSlot(std::vector<Slot>& slotsA, int blockID) {
   for (int i = 0; i < slotsA.size(); i++) {
     if (blockID == slotsA[i].blockID) {
       return true;

@@ -30,7 +30,7 @@ struct Slot {
   Status status = EMPTY;
 
   // used in out-of-core mode
-  unsigned int vbo = 0, vao = 0;
+  // unsigned int vbo = 0, vao = 0;
   std::vector<Point> points;
 };
 #endif // SLOT_H

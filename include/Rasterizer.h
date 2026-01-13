@@ -93,8 +93,8 @@ private:
 
   // Slot management
   /** @brief Find slot index containing given block ID */
-  bool findSlotIndexByBlockId(std::vector<Slot>& slotsA, std::vector<Slot>& slotsB, int blockID, int slotIdx);
-  bool findBlockInSlot(std::vector<Slot>& slotsA, int blockID);
+  bool updateSlotByBlockID(std::vector<Slot>& slotsSource, std::vector<Slot>& slotsTarget, int blockID, int slotIdx);
+  bool isBlockInSlot(std::vector<Slot>& slotsA, int blockID);
   float slotFactor; // take slotFactor of total blocks to build slots, e.g. 20%.
   int num_slots;
   int num_subSlots;
@@ -136,6 +136,7 @@ private:
   /** @brief Build frustum planes from projection matrix */
   void buildFrustumPlanes();
   std::array<Plane, 6> planes;
+  float margin = 30.0; // culling margin
 
   // initialization parameters
   std::filesystem::path plyPath;
@@ -203,6 +204,8 @@ private:
   // blocks / slots / cached blocks in slot
   std::vector<Block> blocks;
   std::vector<Slot> slots;
+  std::vector<unsigned int> vao;
+  std::vector<unsigned int> vbo;
   std::vector<Slot> subSlots;
 };
 

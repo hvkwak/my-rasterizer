@@ -24,10 +24,11 @@ struct Block {
   int count = 0;
   bool isVisible = false;
   glm::vec3 bb_min, bb_max;
+  float distanceToPlaneMin = false;
   float distanceToCameraCenter = 0.0f;
   float distanceToFrustumCenter = 0.0f;
 
-  // used in in-core mode
+  // used only in in-core mode
   unsigned int vbo = 0, vao = 0;
   std::vector<Point> points;
 };
