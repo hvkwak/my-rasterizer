@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "Point.h"
 #include "Utils.h"
-#include "Cache.h"
+#include "FileStreamCache.h"
 #include "Job.h"
 #include "Block.h"
 #include <iostream>
@@ -236,13 +236,13 @@ bool DataManager::createBlocks(const std::filesystem::path& plyPath, const glm::
 /**
  * @brief Enqueue block loading job
  */
-void DataManager::enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots) {
+void DataManager::enqueueBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadToSlots) {
   Job job;
   job.blockID = blockID;
   job.slotIdx = slotIdx;
   job.count = count;
   job.path = pathFor(blockID);
-  job.loadSubSlots = loadSubSlots;
+  job.loadToSlots = loadToSlots;
   jobQ.push(std::move(job));
 }
 
@@ -334,7 +334,7 @@ void DataManager::workerMain(int workerID, Queue<Job>& jobQ, Queue<Result>& resu
     r.blockID = job.blockID;
     r.slotIdx = job.slotIdx;
     r.count = job.count;
-    r.loadSubSlots = job.loadSubSlots;
+    r.loadToSlots = job.loadToSlots;
     loadBlock(job.path, job.count, r);
 
     // move to Result

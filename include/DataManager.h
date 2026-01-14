@@ -17,7 +17,7 @@
 #include "Queue.h"
 #include "Block.h"
 #include "Point.h"
-#include "Cache.h"
+#include "FileStreamCache.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -55,8 +55,8 @@ private:
   std::streampos dataStart;
   uint64_t vertexCount = 0;
 
-  // Cache, Queue and workers
-  Cache cache;
+  // FileStreamCache, Queue and workers
+  FileStreamCache cache;
   Queue<Job> jobQ;
   Queue<Result> resultQ;
   std::vector<std::thread> workers;

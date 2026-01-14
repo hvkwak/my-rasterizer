@@ -24,7 +24,7 @@ struct Block {
   int count = 0;
   bool isVisible = false;
   glm::vec3 bb_min, bb_max;
-  float distanceToPlaneMin = false;
+  float distanceToPlaneMin = 0.0f;
   float distanceToCameraCenter = 0.0f;
   float distanceToFrustumCenter = 0.0f;
 

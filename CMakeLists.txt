@@ -29,8 +29,9 @@ add_executable(${PROJECT_NAME}
     src/DataManager.cpp
     src/Rasterizer.cpp
     src/Camera.cpp
-    src/Cache.cpp
+    src/FileStreamCache.cpp
     src/Plane.cpp
+    src/SubslotsCache.cpp
 )
 
 # ---- Include directories ----

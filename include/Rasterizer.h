@@ -16,6 +16,7 @@
 #include "Plane.h"
 #include "Block.h"
 #include "Slot.h"
+#include "SubslotsCache.h"
 #include "DataManager.h"
 #include <vector>
 #include <filesystem>
@@ -107,12 +108,10 @@ private:
   void drawBlocks();
   /** @brief Load blocks in out-of-core mode */
   void loadBlocksOOC();
-  void loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadSubSlots);
+  void loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadToSlots);
   /** @brief Draw blocks in out-of-core mode */
   void drawBlocksOOC();
   int loadBlockCount = 0;
-  int cacheHitsA = 0;
-  int cacheHitsB = 0;
 
   // image export
   void saveFramePNG(const std::string& path, int w, int h);
@@ -136,7 +135,6 @@ private:
   /** @brief Build frustum planes from projection matrix */
   void buildFrustumPlanes();
   std::array<Plane, 6> planes;
-  float margin = 30.0; // culling margin
 
   // initialization parameters
   std::filesystem::path plyPath;
@@ -201,12 +199,13 @@ private:
   bool isCache;
   bool isExport;
 
-  // blocks / slots / cached blocks in slot
+  // blocks / slots / cached blocks in subSlot
   std::vector<Block> blocks;
   std::vector<Slot> slots;
   std::vector<unsigned int> vao;
   std::vector<unsigned int> vbo;
-  std::vector<Slot> subSlots;
+  SubslotsCache subSlots;
+
 };
 
 
