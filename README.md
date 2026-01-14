@@ -40,7 +40,7 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 |  #3 |   154 |       77 | 54.10 / 20.19 |               4 / 0 | `--ooc --test --cache` | Out-of-core with block slots and LRU cached subslots.   |
 
 ## Outputs
-Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-Core** (left) and **Out-of-core** (right).
+Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-core** (left) and **Out-of-core** (right).
 <table>
   <tr>
     <th colspan="2" align="left">Church Scene Rasterization In-core and Out-of-core</th>
