@@ -18,7 +18,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 ## News
 - (NEXT) more bottlenecks? better multi-threading? LOD tests?
-- [2026-01-14] Fixed bugs causing excessive cache misses! Tested several sort/caching strategies. Implemented LRU caching (`SubslotsCache`) for subslots. New benchmark results are available.
+- [2026-01-14] Fixed bugs causing excessive cache misses! Tested several sort/caching strategies. Implemented LRU caching (`SubslotsCache`) for subslots.
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
 - [2026-01-03] Implemented custom caching of lower-priority subslots to extend multi-threaded data streaming.
