@@ -20,6 +20,8 @@
 #include "DataManager.h"
 #include <vector>
 #include <filesystem>
+// #include <unordered_map>
+
 
 class Rasterizer
 {
@@ -94,8 +96,8 @@ private:
 
   // Slot management
   /** @brief Find slot index containing given block ID */
-  bool updateSlotByBlockID(std::vector<Slot>& slotsSource, std::vector<Slot>& slotsTarget, int blockID, int slotIdx);
-  bool isBlockInSlot(std::vector<Slot>& slotsA, int blockID);
+  bool updateSlotByBlockID(int blockID, int targetIdx);
+  bool isBlockInSlot(int blockID);
   float slotFactor; // take slotFactor of total blocks to build slots, e.g. 20%.
   int num_slots;
   int num_subSlots;
@@ -205,6 +207,7 @@ private:
   std::vector<unsigned int> vao;
   std::vector<unsigned int> vbo;
   SubslotsCache subSlots;
+  // std::unordered_map<int, int> block_to_slot;// key: blockID, value: slotIdx
 
 };
 

@@ -310,6 +310,8 @@ bool Rasterizer::setupSlots() {
   slots.resize(num_slots);
   vao.resize(num_slots);
   vbo.resize(num_slots);
+  // block_to_slot.clear();
+  // block_to_slot.reserve(num_slots);
 
   if (isCache){
     subSlots.init(num_subSlots);
@@ -451,18 +453,26 @@ void Rasterizer::loadBlocksOOC(){
   for (int i = 0; i < limit; i++) {
     int blockID = blocks[i].blockID;
     // see if it's already in slots
-    if (updateSlotByBlockID(slots, slots, blockID, i)) {
+    if (updateSlotByBlockID(blockID, i)) {
       continue;
     }
 
     // Cache(subSlot) available. see if the block is there.
     if (isCache) {
-      // subslot -> slot
+      // swaps extracted and slots[i]
       Slot extracted;
       if (subSlots.extract(blockID, extracted)) {
-        // slot -> subslot
-        subSlots.put(std::move(slots[i])); // swaps extracted and slots[i]
-        slots[i] = std::move(extracted); // Move extracted slot into slots[i]
+
+        // map erase
+        // int old = slots[i].blockID;
+        // if (old >= 0) block_to_slot.erase(old);
+
+        // slot <-> subSlot
+        subSlots.put(std::move(slots[i]));
+        slots[i] = std::move(extracted);
+
+        // map update
+        // if (slots[i].blockID >= 0) block_to_slot[slots[i].blockID] = i;
         continue;
       }
     }
@@ -481,10 +491,10 @@ void Rasterizer::loadBlocksOOC(){
     int blockIdx = limit;
     while (i < num_subSlots && blockIdx < (int)blocks.size()) {
       int blockID = blocks[blockIdx].blockID;
-      if (isBlockInSlot(slots, blockID)) {
-        blockIdx++;
-        continue;
-      }
+      // if (isBlockInSlot(slots, blockID)) {
+      //   blockIdx++;
+      //   continue;
+      // }
       // If it's already in subSlots, just touch it (mark as recently used)
       if (subSlots.touch(blockID)) {
         i++;
@@ -533,6 +543,10 @@ void Rasterizer::drawBlocksOOC()
 
     if (r.loadToSlots){
 
+      // erase it from map
+      // int old = slots[r.slotIdx].blockID;
+      // if (old >= 0) block_to_slot.erase(old);
+
       if (isCache){
         // existing slot goes to subslot via LRU put()
         subSlots.put(std::move(slots[r.slotIdx]));
@@ -543,6 +557,9 @@ void Rasterizer::drawBlocksOOC()
       slots[r.slotIdx].count = r.count;
       slots[r.slotIdx].status = LOADED;
       slots[r.slotIdx].points = std::move(r.points);
+
+      // update map
+      // block_to_slot[r.blockID] = r.slotIdx;
 
       // bind current block VAO, VBO
       glBindVertexArray(vao[r.slotIdx]);
@@ -582,16 +599,34 @@ void Rasterizer::drawBlocks(){
 }
 
 /**
- * @brief Swaps a specific block from Source to Target, pushing the displaced Target slot to the front of Source.
- * @param slotsSource: The list to search in (e.g., subslots). Receives the displaced slot at the front.
- * @param slotsTarget: The destination list (e.g., slots).
- * @param blockID: ID to search for in slotsSource.
+ * @brief Swaps a specific block within vector slots
+ * @param blockID: ID to search for in slots
  * @param slotIdx: The specific index in slotsTarget to perform the swap.
  */
-bool Rasterizer::updateSlotByBlockID(std::vector<Slot>& slotsSource, std::vector<Slot>& slotsTarget, int blockID, int slotIdx) {
-  for (int i = 0; i < slotsSource.size(); i++) {
-    if (slotsSource[i].blockID == blockID) {
-      std::swap(slotsSource[i], slotsTarget[slotIdx]);
+bool Rasterizer::updateSlotByBlockID(int blockID, int targetIdx) {
+
+  // stay with linear search.
+  // auto it = block_to_slot.find(blockID); // blockID is the key
+  // if (it == block_to_slot.end()) return false;
+
+  // int srcIdx = it->second;
+  // if (srcIdx == targetIdx) return true;
+
+  // std::swap(slots[srcIdx], slots[targetIdx]);
+
+  // // refresh map: blockID of two elements changed after swap
+  // int a = slots[srcIdx].blockID;
+  // int b = slots[targetIdx].blockID;
+
+  // // a, b can be -1.
+  // if (a >= 0) block_to_slot[a] = srcIdx;
+  // if (b >= 0) block_to_slot[b] = targetIdx;
+
+  // return true;
+
+  for (int i = 0; i < slots.size(); i++) {
+    if (slots[i].blockID == blockID) {
+      std::swap(slots[i], slots[targetIdx]);
       return true;
     }
   }
@@ -599,10 +634,15 @@ bool Rasterizer::updateSlotByBlockID(std::vector<Slot>& slotsSource, std::vector
   return false;
 }
 
-// delete this function
-bool Rasterizer::isBlockInSlot(std::vector<Slot>& slotsA, int blockID) {
-  for (int i = 0; i < slotsA.size(); i++) {
-    if (blockID == slotsA[i].blockID) {
+/**
+ * @brief returns true if the block is in slots
+ *
+ * @param blockID: blockID to search in slots
+ * @return
+ */
+bool Rasterizer::isBlockInSlot(int blockID) {
+  for (int i = 0; i < slots.size(); i++) {
+    if (blockID == slots[i].blockID) {
       std::cout << "isBlockInSlot returns True" << std::endl;
       return true;
     }
