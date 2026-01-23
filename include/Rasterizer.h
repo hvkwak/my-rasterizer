@@ -16,6 +16,7 @@
 #include "Plane.h"
 #include "Block.h"
 #include "Slot.h"
+#include "Profiler.h"
 #include "SubslotsCache.h"
 #include "DataManager.h"
 #include <vector>
@@ -95,8 +96,9 @@ private:
   static void window_focus_callback(GLFWwindow* window, int focused);
 
   // Slot management
-  /** @brief Find slot index containing given block ID */
+  /** @brief Update slot with given block ID */
   bool updateSlotByBlockID(int blockID, int targetIdx);
+  /** @brief Check if block is already loaded in a slot */
   bool isBlockInSlot(int blockID);
   float slotFactor; // take slotFactor of total blocks to build slots, e.g. 20%.
   int num_slots;
@@ -104,21 +106,35 @@ private:
   int num_points_per_slot;
 
   // Block rendering
+  /** @brief Clear color and depth buffers */
+  void clear();
+  /** @brief Set view matrix in shader */
+  void setShaderView();
   /** @brief Cull blocks against view frustum */
   void cullBlocks();
   /** @brief Draw blocks in in-core mode */
   void drawBlocks();
   /** @brief Load blocks in out-of-core mode */
   void loadBlocksOOC();
+  /** @brief Enqueue single block for loading */
   void loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadToSlots);
   /** @brief Draw blocks in out-of-core mode */
   void drawBlocksOOC();
   int loadBlockCount = 0;
 
   // image export
+  /** @brief Save framebuffer to PNG file */
   void saveFramePNG(const std::string& path, int w, int h);
+  /** @brief Export current frame if export mode enabled */
+  void exportFrame();
 
-  // performance check variables
+  // performance check
+  /** @brief Update benchmark statistics per frame */
+  void updateBenchmarks();
+  /** @brief Update window title with FPS info */
+  void updateWindowTitle(float fps);
+  /** @brief Print benchmark results to stdout */
+  void printStats();
   uint64_t vertexCount = 0;
   int visibleCount = 0;
   int cacheMiss = 0;
@@ -126,10 +142,13 @@ private:
   int minCacheMiss = INT_MAX;
   int maxVisibleCount = -INT_MAX;
   int minVisibleCount = INT_MAX;
+  double minFPS = 0.0;
+  double maxFPS = 0.0;
+  double avgFPS = 0.0;
 
-  /** @brief Set orbital camera pose for test mode */
   glm::vec3 dir;
-  void setOrbitCamera();
+  /** @brief Set orbital camera pose for test mode */
+  void setCameraPose();
 
   // Frustum culling
   /** @brief Test if AABB intersects view frustum */
@@ -181,14 +200,11 @@ private:
   float z_far;
 
   // Parameters for benchmarks
+  ProfilerCPU profilerCPU;
   const int warmup = 60;
   const int N = 600;
   const float fixedDt = 1.0f / 60.0f;
-  double minFPS_N = std::numeric_limits<double>::infinity();
-  double maxFPS_N = 0.0;
-  double totalSeconds = 0.0;
-  int frameIdx = 0;
-  float angularSpeed = 0.0f;// = glm::radians(10.0f); // 10.0 degrees/sec
+  float angularSpeed = 0.0f; // glm::radians(10.0f); // this is 10.0 degrees/sec
   float distFactor = 0.0f;
 
   // initializers

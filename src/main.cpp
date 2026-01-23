@@ -16,6 +16,11 @@ bool ends_with(const std::string& s, const std::string& suffix) {
   return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+/**
+ * @brief Application entry point
+ * @param argc Argument count
+ * @param argv Arguments: [ply file] [--test] [--ooc] [--cache] [--export]
+ */
 int main(int argc, char **argv) {
 
   // default settings

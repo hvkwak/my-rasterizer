@@ -14,7 +14,6 @@
 #include "DataManager.h"
 #include "Shader.h"
 #include "Utils.h"
-#include "Clock.h"
 #include <iostream>
 #include <cstdio>
 #include <cfloat>
@@ -364,6 +363,23 @@ void Rasterizer::buildFrustumPlanes() {
 }
 
 /**
+ * @brief Clear color and depth buffers
+ */
+void Rasterizer::clear() {
+  glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+/**
+ * @brief Set view matrix in shader
+ */
+void Rasterizer::setShaderView() {
+  view = camera.GetViewMatrix();
+  shader->use();
+  shader->setMat4("View", view);
+}
+
+/**
  * @brief Cull blocks against view frustum
  */
 void Rasterizer::cullBlocks(){
@@ -431,6 +447,8 @@ void Rasterizer::loadBlock(const int& blockID, const int& slotIdx, const int& co
  * @brief Load blocks for out-of-core rendering
  */
 void Rasterizer::loadBlocksOOC(){
+
+  if (!isOOC) return;
 
   // sort blocks: visible and near to camera center blocks first
   std::sort(blocks.begin(), blocks.end(),
@@ -517,6 +535,7 @@ void Rasterizer::loadBlocksOOC(){
  */
 void Rasterizer::drawBlocksOOC()
 {
+  if (!isOOC) return;
   // draw existing slots first.
   for (int i = 0; i < num_slots; i++) {
     if (slots[i].blockID != blocks[i].blockID) {
@@ -589,6 +608,7 @@ void Rasterizer::drawBlocksOOC()
  * @brief draws blocks in-core.
  */
 void Rasterizer::drawBlocks(){
+  if (isOOC) return;
   for (int i = 0; i < blocks.size(); i++){
     if (blocks[i].isVisible && blocks[i].count > 0){
       glBindVertexArray(blocks[i].vao);
@@ -655,7 +675,8 @@ bool Rasterizer::isBlockInSlot(int blockID) {
 /**
  * @brief Set orbital camera pose for test mode
  */
-void Rasterizer::setOrbitCamera(){
+void Rasterizer::setCameraPose(){
+  if (!isTest) return;
   // test mode: orbit camera around scene center
   float theta = angularSpeed * (fixedDt);
   dir = camera_position - center;
@@ -670,93 +691,49 @@ void Rasterizer::render(){
 
   while (!glfwWindowShouldClose(window)) {
 
-    auto t0 = steady_clock_t::now();
-    processInput();
+    {
+      CPU_PROFILE(profilerCPU, "Frame");
 
-    if (isTest){
-      setOrbitCamera();
-    }
+      processInput();
+      setCameraPose(); // test mode
+      clear();
+      setShaderView();
 
-    glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      { CPU_PROFILE(profilerCPU, "cullBlocks"); cullBlocks(); }
 
-    view = camera.GetViewMatrix();
-    shader->use();
-    shader->setMat4("View", view);
-
-    // Culling
-    cullBlocks();
-
-    // load and draw blocks
-    if (isOOC) {
-      loadBlocksOOC();
-      drawBlocksOOC();
-    } else {
-      drawBlocks();
-    }
-
-    // Swap buffers & poll events
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-
-    // Export
-    if (isExport) {
-      char buf[256];
-      std::snprintf(buf, sizeof(buf), "%s/frame_%05d.png", "../outputs", frameIdx);
-      saveFramePNG(buf, window_width, window_height);
-    }
-
-    auto t1 = steady_clock_t::now();
-    frameIdx++;
-
-    if (isTest && frameIdx >= warmup) {
-      // update stats for benchmark
-      double dt = seconds(t0, t1);
-      totalSeconds += dt;
-      double fps = (dt > 0.0) ? (1.0 / dt) : 0.0;
-      maxFPS_N = std::max(maxFPS_N, fps);
-      minFPS_N = std::min(minFPS_N, fps);
-      maxVisibleCount = std::max(maxVisibleCount, visibleCount);
-      minVisibleCount = std::min(minVisibleCount, visibleCount);
-      maxCacheMiss = std::max(maxCacheMiss, cacheMiss);
-      minCacheMiss = std::min(minCacheMiss, cacheMiss);
-
-      // if (frameIdx % 10 == 0) {
-      //   std::cout << "Frame " << frameIdx << ": dt=" << dt
-      //             << " sec, fps=" << (1.0 / dt) << std::endl;
-      // }
-
-      if (frameIdx % 10 == 1) {
-        // window title update every frame disturbs too much.
-        char buf[128];
-        std::snprintf(buf, sizeof(buf), "MyRasterizer | FPS: %.1f | visibleCount: %d | Cache Miss: %d", fps, visibleCount, cacheMiss);
-        glfwSetWindowTitle(window, buf);
+      if (isOOC){
+        { CPU_PROFILE(profilerCPU, "LoadOOC"); loadBlocksOOC(); }
+        { CPU_PROFILE(profilerCPU, "DrawOOC"); drawBlocksOOC(); }
+      }else{
+        { CPU_PROFILE(profilerCPU, "DrawInCore"); drawBlocks(); }
       }
+
+
+      // Swap buffers & poll events
+      glfwSwapBuffers(window);
+      glfwPollEvents();
     }
+
+    // export Frame mode
+    // TODO: test this if this works out of the Frame scope
+    exportFrame();
+
+    // update Benchmarks
+    updateBenchmarks();
 
     // break?
-    if (frameIdx - warmup + 1 >= N){
+    if (profilerCPU.stats["Frame"].calls - warmup + 1 >= N) {
       glfwSetWindowShouldClose(window, true);
-      break; // done
+      break;
     }
   }
 
-  // print out stats
-  if (isTest) {
-    double avgFPS = N / totalSeconds;
-    std::cout << "Bench N=" << N << " warmup= " << warmup << "\n";
-    std::cout << "Avg FPS: " << avgFPS << "\n";
-    std::cout << "Max FPS: " << maxFPS_N << "\n";
-    std::cout << "Min FPS: " << minFPS_N << "\n";
-    std::cout << "Max visibleCount: " << maxVisibleCount << "\n";
-    std::cout << "Min visibleCount: " << minVisibleCount << "\n";
-    std::cout << "Max cacheMiss: " << maxCacheMiss << "\n";
-    std::cout << "Min cacheMiss: " << minCacheMiss << "\n";
-  }
+  // print stats
+  printStats();
+  profilerCPU.end_frame_and_print();
 
   // quit
   if (isOOC) dataManager.quit();
-
 }
 
 /**
@@ -882,4 +859,57 @@ void Rasterizer::saveFramePNG(const std::string& path, int w, int h) {
   }
 
   stbi_write_png(path.c_str(), w, h, 4, rgba.data(), w * 4);
+}
+
+/**
+ * @brief Export current frame if export mode enabled
+ */
+void Rasterizer::exportFrame() {
+  if (!isExport) return;
+  char buf[256];
+  std::snprintf(buf, sizeof(buf), "%s/frame_%05d.png", "../outputs", profilerCPU.stats["cullBlocks"].calls);
+  saveFramePNG(buf, window_width, window_height);
+}
+
+/**
+ * @brief Update benchmark statistics per frame
+ */
+void Rasterizer::updateBenchmarks() {
+  if (profilerCPU.stats["Frame"].calls < warmup) return;
+  float dt = profilerCPU.stats["Frame"].current_ms;
+  float fps = (dt > 0.0f) ? (1000.0f / dt) : 0.0f;
+  maxVisibleCount = std::max(maxVisibleCount, visibleCount);
+  minVisibleCount = std::min(minVisibleCount, visibleCount);
+  maxCacheMiss = std::max(maxCacheMiss, cacheMiss);
+  minCacheMiss = std::min(minCacheMiss, cacheMiss);
+  updateWindowTitle(fps);
+}
+
+/**
+ * @brief Update window title with FPS info
+ */
+void Rasterizer::updateWindowTitle(float fps) {
+  if (profilerCPU.stats["cullBlocks"].calls % 10 != 1) return;
+  char buf[128];
+  std::snprintf(buf, sizeof(buf),
+      "MyRasterizer | FPS: %.1f | visibleCount: %d | Cache Miss: %d", fps, visibleCount, cacheMiss);
+  glfwSetWindowTitle(window, buf);
+}
+
+/**
+ * @brief Print benchmark results to stdout
+ */
+void Rasterizer::printStats() {
+  auto& frameStat = profilerCPU.stats["Frame"];
+  avgFPS = 1000.0f * frameStat.calls / frameStat.total_ms;
+  maxFPS = 1000.0f / frameStat.min_ms;
+  minFPS = 1000.0f / frameStat.max_ms;
+  std::cout << "Bench N=" << N << " warmup= " << warmup << "\n";
+  std::cout << "Avg FPS: " << avgFPS << "\n";
+  std::cout << "Max FPS: " << maxFPS << "\n";
+  std::cout << "Min FPS: " << minFPS << "\n";
+  std::cout << "Max visibleCount: " << maxVisibleCount << "\n";
+  std::cout << "Min visibleCount: " << minVisibleCount << "\n";
+  std::cout << "Max cacheMiss: " << maxCacheMiss << "\n";
+  std::cout << "Min cacheMiss: " << minCacheMiss << "\n";
 }
