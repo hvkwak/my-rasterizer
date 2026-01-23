@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <limits.h>
 #include "Timer.h"
 
 /**
@@ -29,7 +30,7 @@ struct ProfilerCPU {
     float current_ms = 0.0f;
     int calls = 0;
     float max_ms = 0.0f;
-    float min_ms = 0.0f;
+    float min_ms = std::numeric_limits<float>::max();
   };
 
   std::unordered_map<std::string, Stat> stats;
@@ -56,7 +57,7 @@ struct ProfilerCPU {
     });
 
     std::cout << "---- CPU Profiler ----\n";
-    std::cout << std::left << std::setw(14) << "Name"
+    std::cout << std::left << std::setw(20) << "Name"
               << std::right << std::setw(12) << "Total(ms)"
               << std::setw(8) << "Calls"
               << std::setw(12) << "Avg(ms)"
@@ -67,7 +68,7 @@ struct ProfilerCPU {
     for (uint32_t i = 0; i < std::min<uint32_t>(topN, (uint32_t)rows.size()); ++i) {
       const auto& r = rows[i];
       double avg = r.s.total_ms / std::max(1, r.s.calls);
-      std::cout << std::left << std::setw(14) << r.name
+      std::cout << std::left << std::setw(20) << r.name
                 << std::right << std::fixed << std::setprecision(3)
                 << std::setw(12) << r.s.total_ms
                 << std::setw(8) << r.s.calls

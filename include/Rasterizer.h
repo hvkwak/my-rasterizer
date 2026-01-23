@@ -118,8 +118,10 @@ private:
   void loadBlocksOOC();
   /** @brief Enqueue single block for loading */
   void loadBlock(const int& blockID, const int& slotIdx, const int& count, const bool& loadToSlots);
-  /** @brief Draw blocks in out-of-core mode */
-  void drawBlocksOOC();
+  /** @brief Draw existing blocks already in slots */
+  void drawOldBlocksOOC();
+  /** @brief Draw newly loaded blocks from worker threads */
+  void drawLoadedBlocksOOC();
   int loadBlockCount = 0;
 
   // image export

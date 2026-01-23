@@ -531,68 +531,50 @@ void Rasterizer::loadBlocksOOC(){
 }
 
 /**
- * @brief Draw blocks in out-of-core mode
+ * @brief Draw existing blocks already in slots. out-of-core mode.
  */
-void Rasterizer::drawBlocksOOC()
+void Rasterizer::drawOldBlocksOOC()
 {
-  if (!isOOC) return;
-  // draw existing slots first.
   for (int i = 0; i < num_slots; i++) {
     if (slots[i].blockID != blocks[i].blockID) {
       continue;
     }
-    // bind current block VAO, VBO
     glBindVertexArray(vao[i]);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
     glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
-
-    // Draw points
     glDrawArrays(GL_POINTS, 0, (GLsizei)slots[i].count);
     glBindVertexArray(0);
   }
+}
 
-
-  // get newly loaded blocks for slots and subSlots
+/**
+ * @brief Draw newly loaded blocks from worker threads. out-of-core mode.
+ */
+void Rasterizer::drawLoadedBlocksOOC()
+{
   int count = 0;
   while (count < loadBlockCount){
-
-    // get result
     Result r;
     dataManager.getResult(r);
 
     if (r.loadToSlots){
-
-      // erase it from map
-      // int old = slots[r.slotIdx].blockID;
-      // if (old >= 0) block_to_slot.erase(old);
-
       if (isCache){
-        // existing slot goes to subslot via LRU put()
         subSlots.put(std::move(slots[r.slotIdx]));
       }
 
-      // update slots[r.slotIdx]
       slots[r.slotIdx].blockID = r.blockID;
       slots[r.slotIdx].count = r.count;
       slots[r.slotIdx].status = LOADED;
       slots[r.slotIdx].points = std::move(r.points);
 
-      // update map
-      // block_to_slot[r.blockID] = r.slotIdx;
-
-      // bind current block VAO, VBO
       glBindVertexArray(vao[r.slotIdx]);
       glBindBuffer(GL_ARRAY_BUFFER, vbo[r.slotIdx]);
       glBufferSubData(GL_ARRAY_BUFFER, 0,
                       slots[r.slotIdx].count * sizeof(Point),
                       slots[r.slotIdx].points.data());
-
-      // Draw points
       glDrawArrays(GL_POINTS, 0, (GLsizei)slots[r.slotIdx].count);
       glBindVertexArray(0);
     } else {
-      // cache initialization.
-      // add to subSlots cache via put()
       Slot s;
       s.blockID = r.blockID;
       s.count = r.count;
@@ -703,7 +685,8 @@ void Rasterizer::render(){
 
       if (isOOC){
         { CPU_PROFILE(profilerCPU, "LoadOOC"); loadBlocksOOC(); }
-        { CPU_PROFILE(profilerCPU, "DrawOOC"); drawBlocksOOC(); }
+        { CPU_PROFILE(profilerCPU, "drawOldBlocksOOC"); drawOldBlocksOOC(); }
+        { CPU_PROFILE(profilerCPU, "drawLoadedBlocksOOC"); drawLoadedBlocksOOC(); }
       }else{
         { CPU_PROFILE(profilerCPU, "DrawInCore"); drawBlocks(); }
       }
