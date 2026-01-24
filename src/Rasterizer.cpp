@@ -694,6 +694,9 @@ void Rasterizer::render(){
         { CPU_PROFILE(profilerCPU, "DrawInCore"); drawBlocks(); }
       }
 
+      // export before swap to capture current back buffer
+      exportFrame();
+
       {
         CPU_PROFILE(profilerCPU, "work2");
         // Swap buffers & poll events
@@ -701,10 +704,6 @@ void Rasterizer::render(){
         glfwPollEvents();
       }
     }
-
-    // export Frame mode
-    // TODO: test this if this works out of the Frame scope
-    exportFrame();
 
     // update Benchmarks
     updateBenchmarks();
