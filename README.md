@@ -35,11 +35,11 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 ## Benchmarks
 This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 1000 (10x10x10) to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are configured with 154 slots (30% of non-empty blocks). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming. For fair comparison, in-core rendering uses the same block and point counts per frame as out-of-core.
 
-| Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
+| Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
-|  #1 |   154 |        — | 65.15 / 180.19 / 21.40 |                   — | `--test`               | In-core (baseline) (Baseline)                                     |
-|  #2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 / 0 | `--ooc --test`         | Out-of-core, no cache      |
-|  #3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 / 0 | `--ooc --test --cache` | Out-of-core + LRU cache   |
+|  1 |   154 |        — | 65.15 / 180.19 / 21.40 |            — | `--test`               | In-core (baseline) (Baseline)                                     |
+|  2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 | `--ooc --test`         | Out-of-core, no cache      |
+|  3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 | `--ooc --test --cache` | Out-of-core + LRU cache   |
 
 ## Outputs
 Side-by-side GIFs of `Church` rasterized with identical camera poses: **Original** (left) and **Out-of-core** (right).
