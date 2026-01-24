@@ -44,7 +44,7 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 Side-by-side GIFs of `Church` rasterized with identical camera poses: **Original** (left) and **Out-of-core** (right).
 <table>
   <tr>
-    <th colspan="2" align="left">Church Scene Rasterization Original</th>
+    <th colspan="2" align="left">Church Scene Rasterization</th>
   </tr>
   <tr>
     <td align="center">
