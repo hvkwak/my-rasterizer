@@ -17,8 +17,8 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 
 ## News
-- (NEXT) more bottlenecks? better multi-threading? LOD tests?
-- [2026-01-21] Attempted `std::unordered_map` for slot lookup optimization in `updateSlotByBlockID()`. Hash map overhead outweighs benefit for small slot counts. Reverted to linear search.
+- [2026-01-24] Implemented cpu profiler. Bug fixes and new benchmarks!
+- [2026-01-21] Attempted `std::unordered_map` for slot lookup optimization in `updateSlotByBlockID()`. Hash map overheads outweigh benefit for small slot counts. Reverted to linear search.
 - [2026-01-14] Fixed bugs causing excessive cache misses! Tested several sort/caching strategies. Implemented LRU caching (`SubslotsCache`) for subslots.
 - [2026-01-04] Added PNG frame export to support GIF generation
 - [2026-01-04] Added benchmarks that compare in-core rendering with multiple out-of-core strategies under identical camera motion and block capacity constraints.
@@ -32,24 +32,24 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - [2025-12-16] Implemented a basic 3D point cloud rasterizer with camera control.
 
 ## Benchmarks
-This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 1000 (10x10x10) to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are configured with 154 slots (30% of non-empty blocks.). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming.
+This project is tested with the `Church` scene (67M points) from [Tanks and Temples](https://www.tanksandtemples.org/) on Ryzen 7 PRO 5850U with Radeon Vega iGPU using a 30°/sec (with `fixedDt` = 1.0/60.0) orbital camera poses. Filtering empty blocks reduces blocks from 1000 (10x10x10) to 514 blocks. Max/Min visible blocks: 198 / 90. For Out-of-core rendering, a subset of visible blocks is "loaded" into available slots for rendering. Test #2 and #3 are configured with 154 slots (30% of non-empty blocks). Maximum capacity per slot is 130K points (≈ 67M points / 514 blocks). 5 Workers were enabled for out-of-core multi-threaded data streaming. For fair comparison, in-core rendering uses the same block and point counts per frame as out-of-core.
 
-| Nr. | slots | subslots | FPS Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
+| Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
-|  #1 |     — |        — | 87.63 / 25.89 |                   — | `--test`               | In-core. (Baseline)                                     |
-|  #2 |   154 |        — | 52.29 / 20.32 |               4 / 0 | `--ooc --test`         | Out-of-core with block slots. No subslots caching.      |
-|  #3 |   154 |       77 | 54.10 / 20.19 |               4 / 0 | `--ooc --test --cache` | Out-of-core with block slots and LRU cached subslots.   |
+|  #1 |   154 |        — | 65.15 / 180.19 / 21.40 |                   — | `--test`               | In-core. (Baseline)                                     |
+|  #2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 / 0 | `--ooc --test`         | Out-of-core with block slots. No subslots caching.      |
+|  #3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 / 0 | `--ooc --test --cache` | Out-of-core with block slots and LRU cached subslots.   |
 
 ## Outputs
-Side-by-side GIFs of `Church` rasterized with identical camera poses: **In-core** (left) and **Out-of-core** (right).
+Side-by-side GIFs of `Church` rasterized with identical camera poses: **Original** (left) and **Out-of-core** (right).
 <table>
   <tr>
-    <th colspan="2" align="left">Church Scene Rasterization In-core and Out-of-core</th>
+    <th colspan="2" align="left">Church Scene Rasterization Original and Out-of-core</th>
   </tr>
   <tr>
     <td align="center">
-      <a href="outputs/church_IC.gif">
-        <img src="outputs/church_IC.gif" alt="In-core" width="360">
+      <a href="outputs/church.gif">
+        <img src="outputs/church.gif" alt="Original" width="360">
       </a><br>
       <sub>In-core</sub>
     </td>

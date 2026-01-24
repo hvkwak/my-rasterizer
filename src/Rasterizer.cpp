@@ -262,6 +262,12 @@ bool Rasterizer::filterBlocks(){
  * @return true if buffer setup succeeds
  */
 bool Rasterizer::setupBufferWrapper(){
+  num_slots = (int)(slotFactor * blocks.size());
+  num_subSlots = (int)(0.5f*slotFactor * blocks.size());
+  num_points_per_slot = (int)(vertexCount/blocks.size());
+  std::cout << "num_slots: " << num_slots << "\n";
+  std::cout << "num_subSlots: " << num_subSlots << "\n";
+  std::cout << "num_points_per_slot: " << num_points_per_slot << "\n";
   return isOOC ? setupSlots() : setupBufferPerBlock();
 }
 
@@ -300,12 +306,6 @@ bool Rasterizer::setupBufferPerBlock(){
 bool Rasterizer::setupSlots() {
 
   // init slots
-  num_slots = (int)(slotFactor * blocks.size());
-  num_subSlots = (int)(0.5f*slotFactor * blocks.size());
-  num_points_per_slot = (int)(vertexCount/blocks.size());
-  std::cout << "num_slots: " << num_slots << "\n";
-  std::cout << "num_subSlots: " << num_subSlots << "\n";
-  std::cout << "num_points_per_slot: " << num_points_per_slot << "\n";
   slots.resize(num_slots);
   vao.resize(num_slots);
   vbo.resize(num_slots);
@@ -387,6 +387,26 @@ void Rasterizer::cullBlocks(){
   for (int i = 0; i < blocks.size(); i++){
     aabbIntersectsFrustum(blocks[i]);
   }
+  limit = std::min<int>(num_slots, visibleCount);
+}
+
+/**
+ * @brief sort blocks
+ */
+void Rasterizer::sortBlocks(){
+  // sort blocks: visible and near to camera center blocks first
+  std::sort(blocks.begin(), blocks.end(),
+            [](const Block& a, const Block& b){
+              if (a.isVisible != b.isVisible) {
+                return a.isVisible > b.isVisible;
+              }
+              if (a.isVisible) {
+                return a.distanceToCameraCenter < b.distanceToCameraCenter;
+              } else{
+                return a.distanceToPlaneMin > b.distanceToPlaneMin;
+              }
+            }
+          );
 }
 
 /**
@@ -448,24 +468,7 @@ void Rasterizer::loadBlock(const int& blockID, const int& slotIdx, const int& co
  */
 void Rasterizer::loadBlocksOOC(){
 
-  if (!isOOC) return;
-
-  // sort blocks: visible and near to camera center blocks first
-  std::sort(blocks.begin(), blocks.end(),
-            [](const Block& a, const Block& b){
-              if (a.isVisible != b.isVisible) {
-                return a.isVisible > b.isVisible;
-              }
-              if (a.isVisible) {
-                return a.distanceToCameraCenter < b.distanceToCameraCenter;
-              } else{
-                return a.distanceToPlaneMin > b.distanceToPlaneMin;
-              }
-            }
-          );
-
   // load blocks to slots
-  int limit = std::min<int>(num_slots, visibleCount);
   loadBlockCount = 0;
   cacheMiss = 0;
   for (int i = 0; i < limit; i++) {
@@ -477,20 +480,26 @@ void Rasterizer::loadBlocksOOC(){
 
     // Cache(subSlot) available. see if the block is there.
     if (isCache) {
+      // Download current slot's points from GPU before evicting to cache
       // swaps extracted and slots[i]
       Slot extracted;
       if (subSlots.extract(blockID, extracted)) {
+        // TODO: Download/Upload between host and device blocks the main thread -> decreases FPS!
+        // glBindVertexArray(vao[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
+        slots[i].points.resize(slots[i].count);
+        glGetBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
 
-        // map erase
-        // int old = slots[i].blockID;
-        // if (old >= 0) block_to_slot.erase(old);
+        // Upload from extracted directly
+        glBufferSubData(GL_ARRAY_BUFFER, 0, extracted.count * sizeof(Point), extracted.points.data());
 
-        // slot <-> subSlot
+        // Evict old slot to cache
         subSlots.put(std::move(slots[i]));
-        slots[i] = std::move(extracted);
 
-        // map update
-        // if (slots[i].blockID >= 0) block_to_slot[slots[i].blockID] = i;
+        // Only copy metadata to active slot, no points
+        slots[i].blockID = extracted.blockID;
+        slots[i].count = extracted.count;
+        slots[i].status = extracted.status;
         continue;
       }
     }
@@ -535,15 +544,14 @@ void Rasterizer::loadBlocksOOC(){
  */
 void Rasterizer::drawOldBlocksOOC()
 {
-  for (int i = 0; i < num_slots; i++) {
+  for (int i = 0; i < limit; i++) {
     if (slots[i].blockID != blocks[i].blockID) {
       continue;
     }
     glBindVertexArray(vao[i]);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
+    // glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
+    // glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
     glDrawArrays(GL_POINTS, 0, (GLsizei)slots[i].count);
-    glBindVertexArray(0);
   }
 }
 
@@ -558,22 +566,27 @@ void Rasterizer::drawLoadedBlocksOOC()
     dataManager.getResult(r);
 
     if (r.loadToSlots){
+
+      glBindVertexArray(vao[r.slotIdx]);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo[r.slotIdx]);
+
       if (isCache){
+        // download the points from GPU and keep it in cache. no longer store r.points in the active slot.
+        // Only cached slots(subSlots) need CPU copies.
+        slots[r.slotIdx].points.resize(slots[r.slotIdx].count);
+        glGetBufferSubData(GL_ARRAY_BUFFER, 0, slots[r.slotIdx].count * sizeof(Point), slots[r.slotIdx].points.data());  // destination in CPU memory
         subSlots.put(std::move(slots[r.slotIdx]));
       }
 
       slots[r.slotIdx].blockID = r.blockID;
       slots[r.slotIdx].count = r.count;
       slots[r.slotIdx].status = LOADED;
-      slots[r.slotIdx].points = std::move(r.points);
+      // slots[r.slotIdx].points = std::move(r.points);
 
-      glBindVertexArray(vao[r.slotIdx]);
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[r.slotIdx]);
       glBufferSubData(GL_ARRAY_BUFFER, 0,
                       slots[r.slotIdx].count * sizeof(Point),
-                      slots[r.slotIdx].points.data());
+                      r.points.data()); // directly from r to GPU
       glDrawArrays(GL_POINTS, 0, (GLsizei)slots[r.slotIdx].count);
-      glBindVertexArray(0);
     } else {
       Slot s;
       s.blockID = r.blockID;
@@ -590,45 +603,30 @@ void Rasterizer::drawLoadedBlocksOOC()
  * @brief draws blocks in-core.
  */
 void Rasterizer::drawBlocks(){
-  if (isOOC) return;
-  for (int i = 0; i < blocks.size(); i++){
+  // instead of drawing all visible blocks, keep it to num_slots.
+  for (int i = 0; i < limit; i++){
     if (blocks[i].isVisible && blocks[i].count > 0){
+      int count = std::min(blocks[i].count, num_points_per_slot);
       glBindVertexArray(blocks[i].vao);
-      glBindBuffer(GL_ARRAY_BUFFER, blocks[i].vbo);
-      glDrawArrays(GL_POINTS, 0, (GLsizei)blocks[i].count);
+      // glBindBuffer(GL_ARRAY_BUFFER, blocks[i].vbo);
+      glDrawArrays(GL_POINTS, 0, (GLsizei)count);
     }
   }
 }
 
 /**
- * @brief Swaps a specific block within vector slots
+ * @brief find the block by ID in slots and keep it in the targetIdx by swap.
  * @param blockID: ID to search for in slots
  * @param slotIdx: The specific index in slotsTarget to perform the swap.
  */
 bool Rasterizer::updateSlotByBlockID(int blockID, int targetIdx) {
 
   // stay with linear search.
-  // auto it = block_to_slot.find(blockID); // blockID is the key
-  // if (it == block_to_slot.end()) return false;
-
-  // int srcIdx = it->second;
-  // if (srcIdx == targetIdx) return true;
-
-  // std::swap(slots[srcIdx], slots[targetIdx]);
-
-  // // refresh map: blockID of two elements changed after swap
-  // int a = slots[srcIdx].blockID;
-  // int b = slots[targetIdx].blockID;
-
-  // // a, b can be -1.
-  // if (a >= 0) block_to_slot[a] = srcIdx;
-  // if (b >= 0) block_to_slot[b] = targetIdx;
-
-  // return true;
-
   for (int i = 0; i < slots.size(); i++) {
     if (slots[i].blockID == blockID) {
       std::swap(slots[i], slots[targetIdx]);
+      std::swap(vao[i], vao[targetIdx]);
+      std::swap(vbo[i], vbo[targetIdx]);
       return true;
     }
   }
@@ -676,25 +674,32 @@ void Rasterizer::render(){
     {
       CPU_PROFILE(profilerCPU, "Frame");
 
-      processInput();
-      setCameraPose(); // test mode
-      clear();
-      setShaderView();
-
-      { CPU_PROFILE(profilerCPU, "cullBlocks"); cullBlocks(); }
-
-      if (isOOC){
-        { CPU_PROFILE(profilerCPU, "LoadOOC"); loadBlocksOOC(); }
-        { CPU_PROFILE(profilerCPU, "drawOldBlocksOOC"); drawOldBlocksOOC(); }
-        { CPU_PROFILE(profilerCPU, "drawLoadedBlocksOOC"); drawLoadedBlocksOOC(); }
-      }else{
-        { CPU_PROFILE(profilerCPU, "DrawInCore"); drawBlocks(); }
+      {
+        CPU_PROFILE(profilerCPU, "work1");
+        processInput();
+        setCameraPose(); // test mode
+        clear();
+        setShaderView();
       }
 
 
-      // Swap buffers & poll events
-      glfwSwapBuffers(window);
-      glfwPollEvents();
+      { CPU_PROFILE(profilerCPU, "cullBlocks"); cullBlocks(); }
+      { CPU_PROFILE(profilerCPU, "sortBlocks"); sortBlocks(); }
+
+      if (isOOC) {
+        { CPU_PROFILE(profilerCPU, "LoadOOC"); loadBlocksOOC(); }
+        { CPU_PROFILE(profilerCPU, "drawOldBlocksOOC"); drawOldBlocksOOC(); }
+        { CPU_PROFILE(profilerCPU, "drawLoadedBlocksOOC"); drawLoadedBlocksOOC(); }
+      } else {
+        { CPU_PROFILE(profilerCPU, "DrawInCore"); drawBlocks(); }
+      }
+
+      {
+        CPU_PROFILE(profilerCPU, "work2");
+        // Swap buffers & poll events
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+      }
     }
 
     // export Frame mode
@@ -850,7 +855,7 @@ void Rasterizer::saveFramePNG(const std::string& path, int w, int h) {
 void Rasterizer::exportFrame() {
   if (!isExport) return;
   char buf[256];
-  std::snprintf(buf, sizeof(buf), "%s/frame_%05d.png", "../outputs", profilerCPU.stats["cullBlocks"].calls);
+  std::snprintf(buf, sizeof(buf), "%s/frame_%05d.png", "../outputs", profilerCPU.stats["Frame"].calls);
   saveFramePNG(buf, window_width, window_height);
 }
 

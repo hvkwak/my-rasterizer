@@ -21,8 +21,6 @@
 #include "DataManager.h"
 #include <vector>
 #include <filesystem>
-// #include <unordered_map>
-
 
 class Rasterizer
 {
@@ -101,9 +99,9 @@ private:
   /** @brief Check if block is already loaded in a slot */
   bool isBlockInSlot(int blockID);
   float slotFactor; // take slotFactor of total blocks to build slots, e.g. 20%.
-  int num_slots;
-  int num_subSlots;
-  int num_points_per_slot;
+  int num_slots = INT_MAX;
+  int num_subSlots = INT_MAX;
+  int num_points_per_slot = INT_MAX;
 
   // Block rendering
   /** @brief Clear color and depth buffers */
@@ -112,6 +110,8 @@ private:
   void setShaderView();
   /** @brief Cull blocks against view frustum */
   void cullBlocks();
+  /** @brief sort blocks */
+  void sortBlocks();
   /** @brief Draw blocks in in-core mode */
   void drawBlocks();
   /** @brief Load blocks in out-of-core mode */
@@ -139,6 +139,7 @@ private:
   void printStats();
   uint64_t vertexCount = 0;
   int visibleCount = 0;
+  int limit = 0;
   int cacheMiss = 0;
   int maxCacheMiss = -INT_MAX;
   int minCacheMiss = INT_MAX;
@@ -225,7 +226,6 @@ private:
   std::vector<unsigned int> vao;
   std::vector<unsigned int> vbo;
   SubslotsCache subSlots;
-  // std::unordered_map<int, int> block_to_slot;// key: blockID, value: slotIdx
 
 };
 
