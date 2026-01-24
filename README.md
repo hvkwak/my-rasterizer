@@ -37,9 +37,9 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 
 | Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max / Min | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
-|  #1 |   154 |        — | 65.15 / 180.19 / 21.40 |                   — | `--test`               | In-core. (Baseline)                                     |
-|  #2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 / 0 | `--ooc --test`         | Out-of-core with block slots. No subslots caching.      |
-|  #3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 / 0 | `--ooc --test --cache` | Out-of-core with block slots and LRU cached subslots.   |
+|  #1 |   154 |        — | 65.15 / 180.19 / 21.40 |                   — | `--test`               | In-core (baseline) (Baseline)                                     |
+|  #2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 / 0 | `--ooc --test`         | Out-of-core, no cache      |
+|  #3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 / 0 | `--ooc --test --cache` | Out-of-core + LRU cache   |
 
 ## Outputs
 Side-by-side GIFs of `Church` rasterized with identical camera poses: **Original** (left) and **Out-of-core** (right).
@@ -126,6 +126,9 @@ You can specify custom files via command line arguments:
 
 # Out-of-core rendering for large datasets in test mode
 ./main --test --ooc
+
+# Out-of-core rendering for large datasets in test mode with subslots cache
+./main --test --ooc --cache
 ```
 
 ### Camera Controls
