@@ -18,7 +18,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 
 ## News
-- [2026-01-24] Implemented cpu profiler. Bug fixes and new benchmarks!
+- [2026-01-24] Implemented CPU profiler. Bug fixes and new benchmarks!
 - [2026-01-21] Attempted `std::unordered_map` for slot lookup optimization in `updateSlotByBlockID()`. Hash map overheads outweigh benefit for small slot counts. Reverted to linear search.
 - [2026-01-14] Fixed bugs causing excessive cache misses! Tested several sort/caching strategies. Implemented LRU caching (`SubslotsCache`) for subslots.
 - [2026-01-04] Added PNG frame export to support GIF generation
