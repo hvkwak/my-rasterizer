@@ -13,6 +13,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
   - In-core and out-of-core rendering strategies
   - Identical camera motion and controlled block capacity constraints
 - **Offline frame export** for qualitative evaluation and GIF generation
+- **CPU profiler** for finding bottlenecks
 - Custom vertex and fragment shader support
 
 
