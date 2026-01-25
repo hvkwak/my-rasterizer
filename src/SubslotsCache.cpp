@@ -7,6 +7,7 @@
 //=============================================================================
 
 #include "SubslotsCache.h"
+#include <glad/glad.h>
 
 /**
  * @brief Initialize cache with given capacity
@@ -24,35 +25,45 @@ bool SubslotsCache::touch(int blockID) {
   if (it == where.end())
     return false;
 
-  // Move that node to back in O(1)
+  // Move that node to the end in O(1)
   slots.splice(slots.end(), slots, it->second);
   return true;
 }
 
 /**
  * @brief Insert or update a slot in the cache
+ * @param s Slot to insert (moved into cache)
+ * @param evicted Optional pointer to receive evicted slot
+ * @return true if a slot was evicted, false otherwise
  */
-void SubslotsCache::put(Slot s) {
+bool SubslotsCache::put(Slot s, Slot* evicted) {
   auto it = where.find(s.blockID);
 
   if (it != where.end()) {
-    // Update payload (optional) and move to MRU
+    // Update existing entry, move to MRU
     *(it->second) = std::move(s);
     slots.splice(slots.end(), slots, it->second);
-    return;
+    return false;
   }
 
-  // New item: add to MRU
+  // Check if we need to evict before adding
+  bool willEvict = (slots.size() >= capacity);
+
+  if (willEvict) {
+    // Extract LRU slot before evicting
+    if (evicted) {
+      *evicted = std::move(slots.front());
+    }
+    where.erase(slots.front().blockID);
+    slots.pop_front();
+  }
+
+  // Add new item at MRU position
   slots.push_back(std::move(s));
   auto nodeIt = std::prev(slots.end());
   where[nodeIt->blockID] = nodeIt;
 
-  // Evict if needed
-  if (slots.size() > capacity) {
-    int evictID = slots.front().blockID;
-    slots.pop_front();
-    where.erase(evictID);
-  }
+  return willEvict;
 }
 
 /**
@@ -80,4 +91,16 @@ bool SubslotsCache::extract(int blockID, Slot& out) {
   slots.erase(it->second);
   where.erase(it);
   return true;
+}
+
+/**
+ * @brief Clear cache, deleting all VAO/VBO resources
+ */
+void SubslotsCache::clear() {
+  for (auto& slot : slots) {
+    if (slot.vao != 0) glDeleteVertexArrays(1, &slot.vao);
+    if (slot.vbo != 0) glDeleteBuffers(1, &slot.vbo);
+  }
+  slots.clear();
+  where.clear();
 }

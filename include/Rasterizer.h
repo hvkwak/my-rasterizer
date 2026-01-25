@@ -74,6 +74,7 @@ private:
   bool setupBufferWrapper();
   /** @brief Setup OpenGL buffers per block for in-core rendering */
   bool setupBufferPerBlock();
+  void setupBuffer(unsigned int& vao, unsigned int& vbo, int count, int size);
   /** @brief Setup frustum culling */
   bool setupCulling();
   /** @brief Setup slots for out-of-core rendering */
@@ -223,8 +224,8 @@ private:
   // blocks / slots / cached blocks in subSlot
   std::vector<Block> blocks;
   std::vector<Slot> slots;
-  std::vector<unsigned int> vao;
-  std::vector<unsigned int> vbo;
+  // std::vector<unsigned int> vao;
+  // std::vector<unsigned int> vbo;
   SubslotsCache subSlots;
 
 };

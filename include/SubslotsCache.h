@@ -38,8 +38,10 @@ public:
     /**
      * @brief Insert or update a slot in the cache
      * @param s Slot to insert (moved into cache)
+     * @param evicted Optional pointer to receive evicted slot (nullptr if not needed)
+     * @return true if a slot was evicted, false otherwise
      */
-    void put(Slot s);
+    bool put(Slot s, Slot* evicted = nullptr);
 
     /**
      * @brief Evict the least recently used slot
@@ -54,6 +56,11 @@ public:
      * @return true if block was found and extracted
      */
     bool extract(int blockID, Slot& out);
+
+    /**
+     * @brief Clear cache, deleting all VAO/VBO resources
+     */
+    void clear();
 
 private:
     size_t capacity;

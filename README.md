@@ -18,7 +18,8 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 
 
 ## News
-- [2026-01-24] Implemented CPU profiler. Bug fixes and new benchmarks!
+- [2026-01-25] Changed slot caching to be GPU-resident to eliminate transfers between CPU and GPU on cache hits. New benchmarks available.
+- [2026-01-24] Implemented CPU profiler. Bug fixes and new benchmarks available.
 - [2026-01-21] Attempted `std::unordered_map` for slot lookup optimization in `updateSlotByBlockID()`. Hash map overheads outweigh benefit for small slot counts. Reverted to linear search.
 - [2026-01-14] Fixed bugs causing excessive cache misses! Tested several sort/caching strategies. Implemented LRU caching (`SubslotsCache`) for subslots.
 - [2026-01-04] Added PNG frame export to support GIF generation
@@ -37,9 +38,9 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 
 | Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
-|  1 |   154 |        — | 65.15 / 180.19 / 21.40 |            — | `--test`               | In-core (baseline) (Baseline)                                     |
-|  2 |   154 |        — | 62.02 / 163.11 / 6.14 |               4 | `--ooc --test`         | Out-of-core, no cache      |
-|  3 |   154 |       77 | 43.32 / 314.34 / 5.73 |               4 | `--ooc --test --cache` | Out-of-core + LRU cache   |
+|  1 |   154 |        — | 62.10 / 212.19 / 15.40 |            — | `--test`               | In-core (baseline) (Baseline)                                     |
+|  2 |   154 |        — | 60.38 / 225.73 / 5.77 |               4 | `--ooc --test`         | Out-of-core, no LRU cache      |
+|  3 |   154 |       77 | 60.80 / 184.34 / 3.79 |               4 | `--ooc --test --cache` | Out-of-core + LRU cache   |
 
 ## Outputs
 Side-by-side GIFs of `Church` rasterized with identical camera poses: **Original** (left) and **Out-of-core** (right).

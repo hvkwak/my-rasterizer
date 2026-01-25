@@ -37,6 +37,15 @@ Rasterizer::~Rasterizer(){
     window = nullptr;
   }
 
+  // Cleanup VAO/VBO for active slots
+  for (auto& slot : slots) {
+    if (slot.vao != 0) glDeleteVertexArrays(1, &slot.vao);
+    if (slot.vbo != 0) glDeleteBuffers(1, &slot.vbo);
+  }
+
+  // Cleanup VAO/VBO for cached slots
+  subSlots.clear();
+
   // glfw: terminate, clearing all previously allocated GLFW resources.
   glfwTerminate();
 }
@@ -276,27 +285,35 @@ bool Rasterizer::setupBufferWrapper(){
  * @return true if setup is successful
  */
 bool Rasterizer::setupBufferPerBlock(){
-
   for (int i = 0; i < blocks.size(); i++) {
-    glGenVertexArrays(1, &blocks[i].vao);
-    glGenBuffers(1, &blocks[i].vbo);
-
-    glBindVertexArray(blocks[i].vao);
+    setupBuffer(blocks[i].vao, blocks[i].vbo, blocks[i].count, sizeof(Point));
+    // Upload actual point data for in-core rendering
     glBindBuffer(GL_ARRAY_BUFFER, blocks[i].vbo);
-
-    // set buffer data
-    glBufferData(GL_ARRAY_BUFFER, blocks[i].count * sizeof(Point),
-                 blocks[i].points.data(), GL_STATIC_DRAW);
-
-    // attrib setup once per VAO
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void *)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point),
-                          (void *)(sizeof(glm::vec3))); // adjust field name
-    glEnableVertexAttribArray(1);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, blocks[i].count * sizeof(Point), blocks[i].points.data());
   }
   return true;
+}
+
+void Rasterizer::setupBuffer(unsigned int& vao, unsigned int& vbo, int count, int size){
+  glGenVertexArrays(1, &vao);
+  glGenBuffers(1, &vbo);
+
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+  // Allocate buffer storage (no data yet)
+  glBufferData(GL_ARRAY_BUFFER, count * size, nullptr, GL_STREAM_DRAW);
+
+  // attrib 0: position (vec3)
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, size, (void*)0);
+
+  // attrib 1: color (vec3)
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, size, (void*)(sizeof(glm::vec3)));
+
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 /**
@@ -305,41 +322,17 @@ bool Rasterizer::setupBufferPerBlock(){
  */
 bool Rasterizer::setupSlots() {
 
-  // init slots
   slots.resize(num_slots);
-  vao.resize(num_slots);
-  vbo.resize(num_slots);
-  // block_to_slot.clear();
-  // block_to_slot.reserve(num_slots);
+
+  // initialize slots
+  for (int i = 0; i < num_slots; i++) {
+    setupBuffer(slots[i].vao, slots[i].vbo, num_points_per_slot, sizeof(Point));
+  }
 
   if (isCache){
     subSlots.init(num_subSlots);
   }
 
-  for (int i = 0; i < num_slots; ++i) {
-    glGenVertexArrays(1, &vao[i]);
-    glGenBuffers(1, &vbo[i]);
-
-    glBindVertexArray(vao[i]);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-
-    // set the capacity per slot, we use glBufferSubData
-    glBufferData(GL_ARRAY_BUFFER,
-                 num_points_per_slot * sizeof(Point),
-                 nullptr,
-                 GL_STREAM_DRAW);
-
-    // attrib 0: position (vec3)
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)0);
-
-    // attrib 1: color (vec3)
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Point), (void*)(sizeof(glm::vec3)));
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-  }
   return true;
 }
 
@@ -480,26 +473,11 @@ void Rasterizer::loadBlocksOOC(){
 
     // Cache(subSlot) available. see if the block is there.
     if (isCache) {
-      // Download current slot's points from GPU before evicting to cache
       // swaps extracted and slots[i]
       Slot extracted;
       if (subSlots.extract(blockID, extracted)) {
-        // TODO: Download/Upload between host and device blocks the main thread -> decreases FPS!
-        // glBindVertexArray(vao[i]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-        slots[i].points.resize(slots[i].count);
-        glGetBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
-
-        // Upload from extracted directly
-        glBufferSubData(GL_ARRAY_BUFFER, 0, extracted.count * sizeof(Point), extracted.points.data());
-
-        // Evict old slot to cache
         subSlots.put(std::move(slots[i]));
-
-        // Only copy metadata to active slot, no points
-        slots[i].blockID = extracted.blockID;
-        slots[i].count = extracted.count;
-        slots[i].status = extracted.status;
+        slots[i] = std::move(extracted);
         continue;
       }
     }
@@ -548,9 +526,7 @@ void Rasterizer::drawOldBlocksOOC()
     if (slots[i].blockID != blocks[i].blockID) {
       continue;
     }
-    glBindVertexArray(vao[i]);
-    // glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-    // glBufferSubData(GL_ARRAY_BUFFER, 0, slots[i].count * sizeof(Point), slots[i].points.data());
+    glBindVertexArray(slots[i].vao);
     glDrawArrays(GL_POINTS, 0, (GLsizei)slots[i].count);
   }
 }
@@ -567,32 +543,39 @@ void Rasterizer::drawLoadedBlocksOOC()
 
     if (r.loadToSlots){
 
-      glBindVertexArray(vao[r.slotIdx]);
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[r.slotIdx]);
-
       if (isCache){
-        // download the points from GPU and keep it in cache. no longer store r.points in the active slot.
-        // Only cached slots(subSlots) need CPU copies.
-        slots[r.slotIdx].points.resize(slots[r.slotIdx].count);
-        glGetBufferSubData(GL_ARRAY_BUFFER, 0, slots[r.slotIdx].count * sizeof(Point), slots[r.slotIdx].points.data());  // destination in CPU memory
-        subSlots.put(std::move(slots[r.slotIdx]));
+        Slot evicted;
+        if (subSlots.put(std::move(slots[r.slotIdx]), &evicted)) {
+          // Reuse evicted slot's VAO/VBO
+          slots[r.slotIdx].vao = evicted.vao;
+          slots[r.slotIdx].vbo = evicted.vbo;
+        } else {
+          // Cache not full yet, create new VAO/VBO
+          setupBuffer(slots[r.slotIdx].vao, slots[r.slotIdx].vbo, num_points_per_slot, sizeof(Point));
+        }
       }
+
+      glBindVertexArray(slots[r.slotIdx].vao);
+      glBindBuffer(GL_ARRAY_BUFFER, slots[r.slotIdx].vbo);
 
       slots[r.slotIdx].blockID = r.blockID;
       slots[r.slotIdx].count = r.count;
       slots[r.slotIdx].status = LOADED;
-      // slots[r.slotIdx].points = std::move(r.points);
 
-      glBufferSubData(GL_ARRAY_BUFFER, 0,
-                      slots[r.slotIdx].count * sizeof(Point),
-                      r.points.data()); // directly from r to GPU
-      glDrawArrays(GL_POINTS, 0, (GLsizei)slots[r.slotIdx].count);
+      glBufferSubData(GL_ARRAY_BUFFER, 0, r.count * sizeof(Point), r.points.data());
+      glDrawArrays(GL_POINTS, 0, (GLsizei)r.count);
     } else {
+      // Cache initialization path - cache isn't full yet, create new VAO/VBO
       Slot s;
+      setupBuffer(s.vao, s.vbo, num_points_per_slot, sizeof(Point));
+
+      glBindVertexArray(s.vao);
+      glBindBuffer(GL_ARRAY_BUFFER, s.vbo);
+      glBufferSubData(GL_ARRAY_BUFFER, 0, r.count * sizeof(Point), r.points.data());
+
       s.blockID = r.blockID;
       s.count = r.count;
       s.status = LOADED;
-      s.points = std::move(r.points);
       subSlots.put(std::move(s));
     }
     count++;
@@ -625,8 +608,6 @@ bool Rasterizer::updateSlotByBlockID(int blockID, int targetIdx) {
   for (int i = 0; i < slots.size(); i++) {
     if (slots[i].blockID == blockID) {
       std::swap(slots[i], slots[targetIdx]);
-      std::swap(vao[i], vao[targetIdx]);
-      std::swap(vbo[i], vbo[targetIdx]);
       return true;
     }
   }
