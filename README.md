@@ -38,7 +38,7 @@ This project is tested with the `Church` scene (67M points) from [Tanks and Temp
 
 | Nr. | slots | subslots | FPS Avg / Max / Min | cacheMiss Max | Config                 | Notes                                                   |
 | :-: | :---: | :------: | :-----------: | :-----------------: | :--------------------- | :------------------------------------------------------ |
-|  1 |   154 |        — | 62.10 / 212.19 / 15.40 |            — | `--test`               | In-core (baseline) (Baseline)                                     |
+|  1 |   154 |        — | 62.10 / 292.19 / 14.68 |            — | `--test`               | In-core (baseline) (Baseline)                                     |
 |  2 |   154 |        — | 60.38 / 225.73 / 5.77 |               4 | `--ooc --test`         | Out-of-core, no LRU cache      |
 |  3 |   154 |       77 | 60.80 / 184.34 / 3.79 |               4 | `--ooc --test --cache` | Out-of-core + LRU cache   |
 
