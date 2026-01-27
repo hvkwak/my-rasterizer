@@ -17,24 +17,26 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - Custom vertex and fragment shader support
 
 ## Architecture
-  < Main Thread >                    < Workers (5) >
-  cullBlocks()
+```
+ < Main Thread >                     < Workers (5) >
+ cullBlocks()
       │
-  sortBlocks()
+ sortBlocks()
       │
-  loadBlocksOOC()                    jobQ.pop() [blocked]
+ loadBlocksOOC()                    jobQ.pop() [blocked]
       ├─ cache hit: GL ops                │
       ├─ cache miss: jobQ.push() ──►  workerMain()
       │                                   ├─ file I/O
-  drawOldBlocksOOC()                      └─ resultQ.push()
+ drawOldBlocksOOC()                       └─ resultQ.push()
       │                                       │
-  drawLoadedBlocksOOC()                       │
+ drawLoadedBlocksOOC()                        │
       └─ resultQ.pop() ◄──────────────────────┘
           └─ GL upload + draw
-  - Producer-consumer pattern
-  - File I/O parallelized (the slow part)
-  - Thread-safe queues prevent races
-  - Main thread can draw old blocks while workers load new ones
+```
+- **Producer-consumer pattern**: Decouples heavy I/O from rendering.
+- **File I/O parallelized**: Multiple workers handle the slowest part of the pipeline.
+- **Thread-safe queues**: Prevents race conditions during task/result passing.
+- **Latency Hiding**: Main thread draws existing data while workers fetch new blocks.
 
 ## News
 - [2026-01-25] Changed slot caching to be GPU-resident to eliminate transfers between CPU and GPU on cache hits. New benchmarks available.
