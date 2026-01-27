@@ -5,7 +5,7 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - **Real-time 3D point cloud rasterization** using an OpenGL-based rendering pipeline with interactive camera control
 - **Out-of-core rendering architecture** for massive point clouds exceeding available RAM
   - Multi-threaded, block-based data streaming
-  - Slot-based block residency to reduce per-frame buffer reallocation overhead
+  - Slot-based block residency to eliminate per-frame buffer reallocation overhead
   - Caching (LRU) of lower-priority subslots to extend streaming efficiency
 - **Spatial partitioning and view-dependent block culling** for both in-core and out-of-core rendering
 - **LRU-based file streaming cache** to minimize repeated file open/close operations during block partitioning
@@ -16,6 +16,25 @@ An experimental out-of-core 3D point cloud rasterizer for interactive visualizat
 - **CPU profiler** for finding bottlenecks
 - Custom vertex and fragment shader support
 
+## Architecture
+  < Main Thread >                    < Workers (5) >
+  cullBlocks()
+      │
+  sortBlocks()
+      │
+  loadBlocksOOC()                    jobQ.pop() [blocked]
+      ├─ cache hit: GL ops                │
+      ├─ cache miss: jobQ.push() ──►  workerMain()
+      │                                   ├─ file I/O
+  drawOldBlocksOOC()                      └─ resultQ.push()
+      │                                       │
+  drawLoadedBlocksOOC()                       │
+      └─ resultQ.pop() ◄──────────────────────┘
+          └─ GL upload + draw
+  - Producer-consumer pattern
+  - File I/O parallelized (the slow part)
+  - Thread-safe queues prevent races
+  - Main thread can draw old blocks while workers load new ones
 
 ## News
 - [2026-01-25] Changed slot caching to be GPU-resident to eliminate transfers between CPU and GPU on cache hits. New benchmarks available.
